@@ -206,7 +206,8 @@ async function loadContacts(){
     contacts=(data.results||[]).map(p=>{
       const props=p.properties||{};
       const customerRel=props['客戶']?.relation||[];
-      const customerName=customerRel.length>0?(customerRel[0]._name||''):'';
+      const titleKey=Object.keys(props).find(k=>props[k].type==='title');
+const customerName=titleKey?(props[titleKey].title||[]).map(t=>t.plain_text||'').join(''):'';
       return {
         id:p.id,
         name:customerName||'未連結客戶',
@@ -218,7 +219,7 @@ async function loadContacts(){
         created:p.created_time?.split('T')[0]||today,
       };
     });
-    await enrichCustomerNames();
+   
     setSyncDot('ok');
   }catch(e){setSyncDot('err');toast('同步失敗，請確認 Integration 已加入資料庫',true)}
   renderList()
