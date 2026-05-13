@@ -216,7 +216,7 @@ async function loadContacts(){
         channel:props['管道']?.select?.name||'',
         talked:(props['聊了什麼']?.rich_text||[]).map(t=>t.plain_text||'').join('')||'',
         nextTopic:(props['下次話題']?.rich_text||[]).map(t=>t.plain_text||'').join('')||'',
-        lastContact:props['最後聯絡']?.date?.start||p.created_time?.split('T')[0]||today,
+        lastContact:props['最後聯絡日期']?.date?.start||p.created_time?.split('T')[0]||today,
         created:p.created_time?.split('T')[0]||today,
       };
     });
@@ -370,7 +370,7 @@ function buildProps(d){
   if(d.channel)p['管道']={select:{name:d.channel}};
   if(d.talked!==undefined)p['聊了什麼']={rich_text:[{text:{content:d.talked||''}}]};
   if(d.nextTopic!==undefined)p['下次話題']={rich_text:[{text:{content:d.nextTopic||''}}]};
-  if(d.lastContact)p['最後聯絡']={date:{start:d.lastContact}};
+  if(d.lastContact)p['最後聯絡日期']={date:{start:d.lastContact}};
   return p;
 }
 
