@@ -194,6 +194,8 @@ const today=new Date().toISOString().split('T')[0];
 function initials(n){return(n||'??').trim().slice(0,2).toUpperCase()}
 function avColor(n){let h=0;for(let c of(n||''))h=(h*31+c.charCodeAt(0))&0xffff;return AV_COLORS[h%AV_COLORS.length]}
 function chColor(ch){return CH_COLORS[ch]||{bg:'#f1f1f1',c:'#888'}}
+function esc(v){return String(v??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]))}
+function attr(v){return esc(v).replace(/`/g,'&#96;')}
 function notionPageUrl(id){return 'https://www.notion.so/'+String(id||'').replace(/-/g,'')}
 function openCustomerPage(e,id){
   if(e)e.stopPropagation();
@@ -248,3 +250,175 @@ function onCustomerInput(){
       results.forEach(p=>{
         const props=p.properties||{};
         const titleKey=Object.keys(props).find(k=>props[k].type==='title');
+        const name=titleKey?(props[titleKey].title||[]).map(t=>t.plain_text||'').join(''):'';
+        if(name) html+=`<div class="cust-opt" onclick="selectCustomer('${attr(p.id)}','${attr(name)}')">👤 ${esc(name)}</div>`;
+      });
+      html+=`<div class="cust-opt cust-opt-new" onclick="useNewCustomer()">＋ 直接新增「${esc(q)}」為新客戶</div>`;
+      dd.innerHTML=html;
+      dd.style.display='block';
+    }catch(e){
+      const q2=document.getElementById('cust-input').value.trim();
+      document.getElementById('cust-dropdown').innerHTML=`<div class="cust-opt cust-opt-new" onclick="useNewCustomer()">＋ 直接新增「${esc(q2)}」為新客戶</div>`;
+      document.getElementById('cust-dropdown').style.display='block';
+    }
+  },300);
+}
+
+function selectCustomer(id,name){
+  selCustId=id; selCustName=name;
+  document.getElementById('cust-input-view').style.display='none';
+  document.getElementById('cust-selected-name').textContent=name;
+  document.getElementById('cust-selected-view').style.display='block';
+  document.getElementById('cust-dropdown').style.display='none';
+}
+
+function useNewCustomer(){
+  const name=document.getElementById('cust-input').value.trim();
+  selCustId=null; selCustName=name;
+  document.getElementById('cust-input-view').style.display='none';
+  document.getElementById('cust-selected-name').textContent=name+' （新客戶）';
+  document.getElementById('cust-selected-view').style.display='block';
+  document.getElementById('cust-dropdown').style.display='none';
+}
+
+function clearCustomer(){
+  selCustId=null; selCustName='';
+  document.getElementById('cust-input-view').style.display='block';
+  document.getElementById('cust-input').value='';
+  document.getElementById('cust-selected-view').style.display='none';
+  document.getElementById('cust-dropdown').style.display='none';
+}
+
+function resetAddForm(){
+  clearCustomer();
+  ['f-talked','f-next'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=''});
+  renderChPills('add-ch-pills',CHANNELS[0]);
+}
+
+function setFilter(el,v){document.querySelectorAll('.fpill').forEach(p=>p.classList.remove('on'));el.classList.add('on');filterCh=v;renderList()}
+
+function renderList(){
+  const q=(document.getElementById('search-input')?.value||'').toLowerCase();
+  const list=contacts.filter(c=>{
+    const mq=!q||[c.name,c.talked,c.nextTopic].some(x=>(x||'').toLowerCase().includes(q));
+    return mq&&(!filterCh||c.channel===filterCh);
+  });
+  const ts=document.getElementById('stat-total');const tt=document.getElementById('stat-today');
+  if(ts)ts.textContent=contacts.length;
+  if(tt)tt.textContent=contacts.filter(c=>c.created===today).length;
+  const el=document.getElementById('contacts-list');if(!el)return;
+  if(!list.length){el.innerHTML='<div class="empty-state">找不到紀錄<br><span style="font-size:13px">點右下角 + 新增</span></div>';return}
+  const cc=c=>{const cv=chColor(c.channel);return c.channel?`<span class="ch-badge" style="background:${cv.bg};color:${cv.c}">${esc(c.channel)}</span>`:''};
+  el.innerHTML=list.map(c=>{const av=avColor(c.name);return`<div class="contact-item" onclick="showDetail('${attr(c.id)}')"><div class="avatar" title="開啟客戶資訊頁" onclick="openCustomerPage(event,'${attr(c.customerId)}')" style="background:${av.bg};color:${av.c}">${esc(initials(c.name))}</div><div class="contact-info"><div class="contact-name">${esc(c.name)}</div><div class="contact-sub">${esc(c.talked||'尚無紀錄')}</div></div>${cc(c)}</div>`}).join('')
+}
+
+function renderChPills(id,cur){
+  const el=document.getElementById(id);if(!el)return;
+  let chosen=cur||CHANNELS[0];
+  const r=()=>{el.innerHTML=CHANNELS.map(s=>`<div class="ch-pill${s===chosen?' on':''}" onclick="this.parentElement._pick('${attr(s)}')">${esc(s)}</div>`).join('')};
+  el._pick=s=>{chosen=s;r()};el._get=()=>chosen;r();
+}
+
+function showDetail(id){currentId=id;editMode=false;const c=contacts.find(x=>x.id===id);if(!c)return;document.getElementById('detail-title').textContent=c.name;document.getElementById('edit-btn').textContent='✏️';renderDetailView(c);showView('detail')}
+
+function renderDetailView(c){
+  const av=avColor(c.name);const cc=chColor(c.channel);
+  document.getElementById('detail-body').innerHTML=`
+    <div class="detail-avatar" title="開啟客戶資訊頁" onclick="openCustomerPage(event,'${attr(c.customerId)}')" style="background:${av.bg};color:${av.c};cursor:pointer">${esc(initials(c.name))}</div>
+    <div class="detail-name">${esc(c.name)}</div>
+    <div class="detail-meta">${c.channel?`<span class="ch-badge" style="background:${cc.bg};color:${cc.c};display:inline-block;margin-right:6px">${esc(c.channel)}</span>`:''}<span style="font-size:13px;color:var(--text3)">${esc(c.lastContact||'')}</span></div>
+    <div class="field-group">
+      <hr class="divider" style="margin-top:0">
+      <div class="field-row"><div class="field-label">聊了什麼</div><div class="field-value">${esc(c.talked||'尚無紀錄')}</div></div>
+      <hr class="divider">
+      <div class="field-row"><div class="field-label">下次話題</div><div class="field-value" style="${c.nextTopic?'':'color:var(--text3)'}">${esc(c.nextTopic||'尚未設定')}</div></div>
+    </div>
+    <hr class="divider">
+    <div class="add-log-btn" onclick="showUpdateLog('${attr(c.id)}')">＋ 更新今天的互動</div>`;
+}
+
+function renderDetailEdit(c){
+  document.getElementById('detail-body').innerHTML=`
+    <div style="height:16px"></div>
+    <div class="field-group">
+      <div class="field-row"><div class="field-label">管道</div><div class="ch-pills" id="edit-ch-pills"></div></div>
+      <div class="field-row"><div class="field-label">聊了什麼</div><textarea class="field-input" id="e-talked" rows="4">${esc(c.talked)}</textarea></div>
+      <div class="field-row"><div class="field-label">下次話題</div><textarea class="field-input" id="e-next" rows="2">${esc(c.nextTopic)}</textarea></div>
+    </div>
+    <button class="btn-primary" id="save-btn" onclick="saveEdit('${attr(c.id)}')">儲存並同步</button>
+    <button class="btn-secondary" onclick="toggleEdit()">取消</button>
+    <div style="height:16px"></div>`;
+  renderChPills('edit-ch-pills',c.channel);
+}
+
+function toggleEdit(){const c=contacts.find(x=>x.id===currentId);if(!c)return;editMode=!editMode;document.getElementById('edit-btn').textContent=editMode?'✕':'✏️';if(editMode)renderDetailEdit(c);else renderDetailView(c)}
+
+function showUpdateLog(id){
+  document.querySelector('.add-log-btn')?.remove();
+  const body=document.getElementById('detail-body');
+  const f=document.createElement('div');
+  f.style.cssText='padding:12px 16px;border-top:0.5px solid var(--border)';
+  f.innerHTML=`<div class="field-label" style="margin-bottom:8px">今天聊了什麼</div><textarea class="field-input" id="log-talked" rows="3" placeholder="更新互動內容..."></textarea><div class="field-label" style="margin:10px 0 6px">下次話題（選填）</div><textarea class="field-input" id="log-next" rows="2" placeholder="下次要聊的事..."></textarea><div style="margin-top:10px"><button class="btn-primary" style="margin:0;padding:10px;font-size:14px" onclick="submitLog('${attr(id)}')">記錄並同步</button></div>`;
+  body.appendChild(f);f.querySelector('textarea').focus();
+}
+
+async function submitLog(id){
+  const talked=document.getElementById('log-talked')?.value?.trim();
+  if(!talked){toast('請輸入內容',true);return}
+  const c=contacts.find(x=>x.id===id);if(!c)return;
+  const next=document.getElementById('log-next')?.value?.trim()||c.nextTopic;
+  await patchNotion(id,{talked,nextTopic:next,lastContact:today,channel:c.channel});
+  c.talked=talked;c.nextTopic=next;c.lastContact=today;
+  toast('已記錄！');renderDetailView(c);
+}
+
+function buildProps(d){
+  const p={};
+  if(d.customerId)p['客戶']={relation:[{id:d.customerId}]};
+  if(d.channel)p['管道']={select:{name:d.channel}};
+  if(d.talked!==undefined)p['聊了什麼']={rich_text:[{text:{content:d.talked||''}}]};
+  if(d.nextTopic!==undefined)p['下次話題']={rich_text:[{text:{content:d.nextTopic||''}}]};
+  if(d.lastContact)p['最後聯絡']={date:{start:d.lastContact}};
+  return p;
+}
+
+async function submitContact(){
+  if(!selCustName){toast('請輸入客戶姓名',true);return}
+  const btn=document.getElementById('add-btn');btn.disabled=true;btn.innerHTML='<div class="spinner"></div>';
+  let custId=selCustId;
+  try{
+    if(!custId){
+      const newCust=await notionAPI('POST','pages',{
+        parent:{database_id:CUSTOMER_DB},
+        properties:{'客戶名稱':{title:[{text:{content:selCustName}}]}}
+      });
+      custId=newCust.id;
+    }
+    const data={customerId:custId,name:selCustName,channel:document.getElementById('add-ch-pills')?._get()||'',talked:document.getElementById('f-talked').value.trim(),nextTopic:document.getElementById('f-next').value.trim(),lastContact:today,created:today};
+    const res=await notionAPI('POST','pages',{parent:{database_id:dbId},properties:buildProps(data)});
+    data.id=res.id;contacts.unshift(data);
+    toast('已新增並同步！');showView('list');
+  }catch(e){toast('同步失敗：'+e.message,true)}
+  btn.disabled=false;btn.innerHTML='新增並同步到 Notion';
+}
+
+async function saveEdit(id){
+  const btn=document.getElementById('save-btn');if(btn){btn.disabled=true;btn.innerHTML='<div class="spinner"></div>'}
+  const c=contacts.find(x=>x.id===id);if(!c)return;
+  const updates={channel:document.getElementById('edit-ch-pills')?._get()||c.channel,talked:document.getElementById('e-talked').value.trim(),nextTopic:document.getElementById('e-next').value.trim(),lastContact:c.lastContact};
+  try{await patchNotion(id,updates);Object.assign(c,updates);toast('已儲存！');editMode=false;document.getElementById('edit-btn').textContent='✏️';renderDetailView(c)}
+  catch(e){toast('儲存失敗',true);if(btn){btn.disabled=false;btn.innerHTML='儲存並同步'}}
+}
+
+async function patchNotion(id,data){if(!id)return;await notionAPI('PATCH',`pages/${id}`,{properties:buildProps(data)})}
+
+document.addEventListener('click',e=>{if(!e.target.closest('#customer-wrap'))document.getElementById('cust-dropdown').style.display='none'});
+
+window.addEventListener('DOMContentLoaded',()=>{
+  renderChPills('add-ch-pills',CHANNELS[0]);
+  const saved=localStorage.getItem(DB_KEY);
+  if(saved){dbId=saved;showView('list');loadContacts()}else showView('setup');
+});
+</script>
+</body>
+</html>
