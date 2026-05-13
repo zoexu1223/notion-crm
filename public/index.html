@@ -82,6 +82,14 @@
   .mini-name{font-weight:800;font-size:14px}
   .mini-talk{font-size:13px;color:var(--text2);line-height:1.5;margin-top:4px}
   .mini-meta{font-size:12px;color:var(--text3);margin-top:4px}
+  .action-sheet{position:fixed;left:0;right:0;bottom:0;z-index:140;display:none}
+  .action-sheet.show{display:block}
+  .sheet-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.18)}
+  .sheet-panel{position:relative;margin:0 auto;padding:10px 12px calc(var(--safe-bot) + 12px);max-width:430px;background:var(--bg);border-radius:18px 18px 0 0;box-shadow:0 -12px 34px rgba(0,0,0,.18)}
+  .sheet-title{padding:10px 8px 12px;font-size:13px;color:var(--text2);font-weight:700;text-align:center;border-bottom:1px solid var(--border)}
+  .sheet-btn{width:100%;padding:15px;border:none;background:var(--bg);font-size:16px;font-weight:800;color:var(--text);cursor:pointer;border-bottom:1px solid var(--border)}
+  .sheet-btn.danger{color:var(--red)}
+  .sheet-btn.cancel{margin-top:8px;border:1px solid var(--border);border-radius:14px;background:var(--bg2);color:var(--text2)}
   .spinner{width:20px;height:20px;border:2px solid rgba(255,255,255,0.3);border-top-color:var(--bg);border-radius:50%;animation:spin .7s linear infinite}
   @keyframes spin{to{transform:rotate(360deg)}}
   .sync-dot{width:8px;height:8px;border-radius:50%;background:#ccc;transition:background .3s}
@@ -142,10 +150,8 @@
   .timeline-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px}
   .timeline-title{font-size:18px;font-weight:800}
   .timeline-add{border:1px solid var(--border2);background:var(--bg);border-radius:18px;padding:8px 12px;font-size:13px;font-weight:700;color:var(--text);cursor:pointer}
-  .timeline-item{position:relative;display:flex;align-items:stretch;border-bottom:1px solid var(--border);overflow:hidden}
-  .timeline-content{flex:1;min-width:0;padding:13px 0;background:var(--bg);transition:transform .18s ease}
-  .timeline-item.reveal .timeline-content{transform:translateX(-76px)}
-  .timeline-delete{width:76px;border:none;background:var(--red);color:#fff;font-size:14px;font-weight:800;cursor:pointer;position:absolute;right:0;top:0;bottom:0}
+  .timeline-item{border-bottom:1px solid var(--border)}
+  .timeline-content{padding:13px 0;background:var(--bg)}
   .timeline-meta{display:flex;gap:8px;align-items:center;margin-bottom:6px;color:var(--text3);font-size:12px;font-weight:700}
   .timeline-talk{font-size:15px;line-height:1.55;color:var(--text)}
   .timeline-next{font-size:13px;line-height:1.5;color:var(--text2);margin-top:5px}
@@ -162,6 +168,15 @@
 <div id="today-frame" class="mini-frame">
   <div class="mini-head"><span>今日新增互動</span><button class="mini-close" onclick="hideTodayFrame()">×</button></div>
   <div class="mini-list" id="today-frame-list"></div>
+</div>
+<div id="interaction-sheet" class="action-sheet">
+  <div class="sheet-backdrop" onclick="hideInteractionSheet()"></div>
+  <div class="sheet-panel">
+    <div class="sheet-title" id="sheet-title">互動操作</div>
+    <button class="sheet-btn" onclick="openSheetInteraction()">查看互動</button>
+    <button class="sheet-btn danger" onclick="deleteSheetInteraction()">刪除互動</button>
+    <button class="sheet-btn cancel" onclick="hideInteractionSheet()">取消</button>
+  </div>
 </div>
 
 <div id="view-setup" style="display:none">
@@ -690,8 +705,7 @@ function renderCustomerHistory(customerId){
   if(!list.length){el.innerHTML='<div class="timeline-empty">尚無互動紀錄。可以從這裡新增第一筆。</div>';return}
   el.innerHTML=list.map(x=>`
     <div class="timeline-item" data-id="${attr(x.id)}">
-      <button class="timeline-delete" onclick="deleteInteraction(event,'${attr(x.id)}')">刪除</button>
-      <div class="timeline-content" onclick="showDetail('${attr(x.id)}')" oncontextmenu="revealDelete(event,this)" onpointerdown="startLongPress(event,this)" onpointerup="clearLongPress()" onpointercancel="clearLongPress()" onpointerleave="clearLongPress()">
+      <div class="timeline-content" onclick="showDetail('${attr(x.id)}')" oncontextmenu="showInteractionSheet(event,'${attr(x.id)}')" onpointerdown="startLongPress(event,'${attr(x.id)}')" onpointerup="clearLongPress()" onpointercancel="clearLongPress()" onpointerleave="clearLongPress()">
         <div class="timeline-meta"><span>${esc(x.lastContact||x.created||'')}</span>${x.channel?`<span class="ch-badge" style="background:${chColor(x.channel).bg};color:${chColor(x.channel).c}">${esc(x.channel)}</span>`:''}</div>
         <div class="timeline-talk">${esc(x.talked||'尚無聊天內容')}</div>
         ${x.nextTopic?`<div class="timeline-next">下次話題：${esc(x.nextTopic)}</div>`:''}
@@ -701,18 +715,36 @@ function renderCustomerHistory(customerId){
 }
 
 let longPressTimer=null;
-function startLongPress(e,el){
+let sheetInteractionId=null;
+function startLongPress(e,id){
   clearLongPress();
-  longPressTimer=setTimeout(()=>revealDelete(e,el),550);
+  longPressTimer=setTimeout(()=>showInteractionSheet(e,id),550);
 }
 function clearLongPress(){
   clearTimeout(longPressTimer);
   longPressTimer=null;
 }
-function revealDelete(e,el){
+function showInteractionSheet(e,id){
   if(e){e.preventDefault();e.stopPropagation();}
-  document.querySelectorAll('.timeline-item.reveal').forEach(x=>x.classList.remove('reveal'));
-  el.closest('.timeline-item')?.classList.add('reveal');
+  sheetInteractionId=id;
+  const item=contacts.find(x=>normId(x.id)===normId(id));
+  const title=document.getElementById('sheet-title');
+  if(title)title.textContent=item?`${item.name} · ${item.lastContact||item.created||''}`:'互動操作';
+  document.getElementById('interaction-sheet')?.classList.add('show');
+}
+function hideInteractionSheet(){
+  document.getElementById('interaction-sheet')?.classList.remove('show');
+  sheetInteractionId=null;
+}
+function openSheetInteraction(){
+  const id=sheetInteractionId;
+  hideInteractionSheet();
+  if(id)showDetail(id);
+}
+function deleteSheetInteraction(){
+  const id=sheetInteractionId;
+  hideInteractionSheet();
+  if(id)deleteInteraction(null,id);
 }
 
 async function deleteInteraction(e,id){
