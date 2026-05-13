@@ -109,6 +109,21 @@
   .due-badge.ok{background:#EAF3DE;color:#3B6D11}
   .fold-row{display:flex;align-items:center;justify-content:space-between;padding:13px 16px;background:var(--bg2);border-bottom:0.5px solid var(--border);font-size:15px;font-weight:700;color:var(--text2);cursor:pointer}
   .list-note{padding:12px 16px;color:var(--text2);font-size:13px;line-height:1.6;background:var(--bg2);border-bottom:0.5px solid var(--border)}
+  .edit-shell{padding:24px 16px calc(var(--safe-bot) + 90px)}
+  .edit-kicker{font-size:13px;color:#64748b;font-weight:700;margin-bottom:12px}
+  .edit-title{font-size:28px;font-weight:800;line-height:1.2;margin-bottom:24px;color:#111827}
+  .edit-grid{display:grid;grid-template-columns:1fr;gap:16px}
+  .edit-field label{display:block;font-size:14px;color:#64748b;font-weight:700;margin-bottom:8px}
+  .edit-input{width:100%;border:1px solid #d8e3f3;border-radius:14px;background:#fff;color:#050505;font-size:17px;font-weight:700;padding:16px 18px;outline:none;font-family:inherit}
+  .edit-input:focus{border-color:#9bb8e5;box-shadow:0 0 0 3px rgba(37,99,235,.08)}
+  textarea.edit-input{min-height:132px;resize:vertical;line-height:1.6}
+  .edit-actions{display:flex;gap:12px;margin-top:22px}
+  .edit-actions .btn-secondary,.edit-actions .btn-primary{width:auto;margin:0;flex:1}
+  @media(min-width:700px){
+    body{max-width:720px}
+    .edit-grid{grid-template-columns:1fr 1fr}
+    .edit-field.full{grid-column:1 / -1}
+  }
 </style>
 </head>
 <body>
@@ -141,7 +156,6 @@
   <div class="main-tabs" id="main-tabs">
     <div class="main-tab on" onclick="setMode('today',this)">今日追蹤</div>
     <div class="main-tab" onclick="setMode('customers',this)">客戶列表</div>
-    <div class="main-tab" onclick="setMode('quick',this)">快速記錄</div>
     <div class="main-tab" onclick="setMode('manager',this)">主管看板</div>
   </div>
   <div class="search-wrap" id="search-wrap">
@@ -210,13 +224,36 @@
   </div>
 </div>
 
+<div id="view-customer-edit" style="display:none">
+  <div class="edit-shell">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px">
+      <div>
+        <div class="edit-kicker">編輯客戶</div>
+        <div class="edit-title">調整客戶資料</div>
+      </div>
+      <button class="btn-secondary" onclick="showView('list')" style="width:auto;margin:0;padding:14px 18px">關閉</button>
+    </div>
+    <div class="edit-grid">
+      <div class="edit-field"><label>姓名</label><input class="edit-input" id="ce-name" /></div>
+      <div class="edit-field"><label>暱稱</label><input class="edit-input" id="ce-nick" /></div>
+      <div class="edit-field"><label>電話</label><input class="edit-input" id="ce-phone" inputmode="tel" /></div>
+      <div class="edit-field"><label>生日</label><input class="edit-input" id="ce-birthday" type="date" /></div>
+      <div class="edit-field full"><label>備註</label><textarea class="edit-input" id="ce-note"></textarea></div>
+    </div>
+    <div class="edit-actions">
+      <button class="btn-secondary" onclick="showView('list')">取消</button>
+      <button class="btn-primary" id="ce-save" onclick="saveCustomerEdit()">更新客戶</button>
+    </div>
+  </div>
+</div>
+
 <script>
 const DB_KEY='notion_crm_db';
 const CUSTOMER_DB='342b637dc33580698559d12ce28a67d1';
 const CHANNELS=['IG','LINE','電話','見面','其他'];
 const AV_COLORS=[{bg:'#E1F5EE',c:'#0F6E56'},{bg:'#EEEDFE',c:'#534AB7'},{bg:'#FAECE7',c:'#993C1D'},{bg:'#FAEEDA',c:'#854F0B'},{bg:'#E6F1FB',c:'#185FA5'}];
 const CH_COLORS={'IG':{bg:'#FAEEDA',c:'#854F0B'},'LINE':{bg:'#EAF3DE',c:'#3B6D11'},'電話':{bg:'#E6F1FB',c:'#185FA5'},'見面':{bg:'#EEEDFE',c:'#534AB7'},'其他':{bg:'#f1f1f1',c:'#888'}};
-let dbId='',contacts=[],customers=[],filterCh='',mode='today',gradeFilter='all',showC=false,editMode=false,currentId=null;
+let dbId='',contacts=[],customers=[],filterCh='',mode='today',gradeFilter='A',showC=false,editMode=false,currentId=null,currentCustomerId=null;
 let selCustId=null,selCustName='',custTimer=null;
 const today=new Date().toISOString().split('T')[0];
 
@@ -272,12 +309,10 @@ function gradeKey(g){
 }
 function openCustomerPage(e,id){
   if(e)e.stopPropagation();
-  if(!id){toast('這筆互動還沒有連到客戶頁',true);return}
-  window.open(notionPageUrl(id),'_blank','noopener');
+  openCustomerEdit(id);
 }
-function showView(v){['setup','list','detail','add'].forEach(x=>document.getElementById('view-'+x).style.display='none');document.getElementById('view-'+v).style.display='block';if(v==='list')renderList();if(v==='add')resetAddForm()}
+function showView(v){['setup','list','detail','add','customer-edit'].forEach(x=>document.getElementById('view-'+x).style.display='none');document.getElementById('view-'+v).style.display='block';if(v==='list')renderList();if(v==='add')resetAddForm()}
 function setMode(next,el){
-  if(next==='quick'){showView('add');return}
   mode=next;
   document.querySelectorAll('.main-tab').forEach(t=>t.classList.remove('on'));
   if(el)el.classList.add('on');
@@ -310,6 +345,10 @@ async function loadContacts(){
       return{
         id:p.id,
         name,
+        nick:richText(props['IG帳號']),
+        phone:richText(props['聯絡方式']),
+        birthday:props['出生年月日']?.date?.start||'',
+        note:richText(props['下次見面主題']),
         grade,
         gradeKey:gradeKey(grade),
         topic,
@@ -427,13 +466,13 @@ function renderList(){
   const el=document.getElementById('contacts-list');if(!el)return;
   if(!list.length){el.innerHTML='<div class="empty-state">找不到紀錄<br><span style="font-size:13px">點右下角 + 新增</span></div>';return}
   const cc=c=>{const cv=chColor(c.channel);return c.channel?`<span class="ch-badge" style="background:${cv.bg};color:${cv.c}">${esc(c.channel)}</span>`:''};
-  el.innerHTML=list.map(c=>{const av=avColor(c.name);return`<div class="contact-item" onclick="showDetail('${attr(c.id)}')"><div class="avatar" title="開啟客戶資訊頁" onclick="openCustomerPage(event,'${attr(c.customerId)}')" style="background:${av.bg};color:${av.c}">${esc(initials(c.name))}</div><div class="contact-info"><div class="contact-name">${esc(c.name)}</div><div class="contact-sub">${esc(c.talked||'尚無紀錄')}</div></div>${cc(c)}</div>`}).join('')
+  el.innerHTML=list.map(c=>{const av=avColor(c.name);return`<div class="contact-item" onclick="showDetail('${attr(c.id)}')"><div class="avatar" title="編輯客戶資料" onclick="openCustomerPage(event,'${attr(c.customerId)}')" style="background:${av.bg};color:${av.c}">${esc(initials(c.name))}</div><div class="contact-info"><div class="contact-name">${esc(c.name)}</div><div class="contact-sub">${esc(c.talked||'尚無紀錄')}</div></div>${cc(c)}</div>`}).join('')
 }
 
 function renderTrackRow(c){
   const av=avColor(c.name);const due=dueLabel(c);
   const sub=[c.topic,c.status].filter(Boolean).join(' · ');
-  return `<div class="track-row" onclick="openCustomerPage(event,'${attr(c.id)}')">
+  return `<div class="track-row" onclick="openCustomerEdit('${attr(c.id)}')">
     <div class="avatar" style="background:${av.bg};color:${av.c}">${esc(initials(c.name))}</div>
     <div class="track-main"><div class="track-name">${esc(c.name)}</div><div class="track-sub">${esc(sub)}</div></div>
     <span class="due-badge ${due.tone}">${esc(due.text)}</span>
@@ -442,35 +481,25 @@ function renderTrackRow(c){
 
 function renderToday(){
   const q=(document.getElementById('search-input')?.value||'').toLowerCase();
-  const active=customers.filter(c=>c.gradeKey!=='D'&&(!q||[c.name,c.topic,c.status].some(x=>(x||'').toLowerCase().includes(q))));
-  const groups={A:[],B:[],C:[]};active.forEach(c=>groups[c.gradeKey]?.push(c));
-  const count=groups.A.length+groups.B.length+groups.C.length;
+  const active=customers.filter(c=>!q||[c.name,c.topic,c.status,c.grade].some(x=>(x||'').toLowerCase().includes(q)));
+  const groups={A:[],B:[],C:[],D:[]};active.forEach(c=>groups[c.gradeKey]?.push(c));
+  const count=groups.A.length+groups.B.length+groups.C.length+groups.D.length;
   const ts=document.getElementById('stat-total');const tt=document.getElementById('stat-today');
   if(ts)ts.textContent=customers.length;
   if(tt)tt.textContent=count;
   const el=document.getElementById('contacts-list');if(!el)return;
-  const filtered=gradeFilter==='all'?['A','B','C']:[gradeFilter];
   let html=`<div class="today-card"><div class="today-head"><div class="today-title">今日追蹤</div><div class="today-count">${count} 人</div></div>
     <div class="grade-tabs">
-      <div class="grade-tab ${gradeFilter==='all'?'on':''}" onclick="gradeFilter='all';renderToday()">全部</div>
       <div class="grade-tab ${gradeFilter==='A'?'on':''}" onclick="gradeFilter='A';renderToday()">A 熱</div>
       <div class="grade-tab ${gradeFilter==='B'?'on':''}" onclick="gradeFilter='B';renderToday()">B 暖</div>
       <div class="grade-tab ${gradeFilter==='C'?'on':''}" onclick="gradeFilter='C';showC=true;renderToday()">C 維護</div>
+      <div class="grade-tab ${gradeFilter==='D'?'on':''}" onclick="gradeFilter='D';renderToday()">D 存檔</div>
     </div>`;
-  if(filtered.includes('A')&&groups.A.length){
-    html+=`<div class="grade-section-label hot">A 級 · ${groups.A.length} 人</div>${groups.A.map(renderTrackRow).join('')}`;
-  }
-  if(filtered.includes('B')&&groups.B.length){
-    html+=`<div class="grade-section-label">B 級 · ${groups.B.length} 人</div>${groups.B.map(renderTrackRow).join('')}`;
-  }
-  if(filtered.includes('C')){
-    if(showC||gradeFilter==='C'){
-      html+=`<div class="fold-row" onclick="showC=false;gradeFilter='all';renderToday()"><span>C 級維護名單 · ${groups.C.length} 人</span><span>⌃</span></div>${groups.C.map(renderTrackRow).join('')}`;
-    }else{
-      html+=`<div class="fold-row" onclick="showC=true;renderToday()"><span>C 級維護名單 · ${groups.C.length} 人（點展開）</span><span>›</span></div>`;
-    }
-  }
-  html+=`<div class="fold-row" style="justify-content:center;color:var(--text3)">D 級不顯示（${customers.filter(c=>c.gradeKey==='D').length} 人存檔中）</div></div>`;
+  const labelMap={A:'A 級',B:'B 級',C:'C 級維護',D:'D 級存檔'};
+  const list=groups[gradeFilter]||[];
+  html+=`<div class="grade-section-label ${gradeFilter==='A'?'hot':''}">${labelMap[gradeFilter]} · ${list.length} 人</div>`;
+  html+=list.length?list.map(renderTrackRow).join(''):`<div class="empty-state">這個分級目前沒有名單</div>`;
+  html+='</div>';
   el.innerHTML=html;
 }
 
@@ -481,9 +510,9 @@ function renderCustomers(){
   if(ts)ts.textContent=customers.length;
   if(tt)tt.textContent=contacts.filter(c=>c.created===today).length;
   const el=document.getElementById('contacts-list');if(!el)return;
-  el.innerHTML='<div class="list-note">客戶列表會顯示全部 A/B/C/D 客戶；點頭像或列項可開啟 Notion 客戶頁。</div>'+list.map(c=>{
+  el.innerHTML='<div class="list-note">客戶列表會顯示全部 A/B/C/D 客戶；點客戶即可在 App 內編輯資料。</div>'+list.map(c=>{
     const av=avColor(c.name);
-    return `<div class="contact-item" onclick="openCustomerPage(event,'${attr(c.id)}')"><div class="avatar" style="background:${av.bg};color:${av.c}">${esc(initials(c.name))}</div><div class="contact-info"><div class="contact-name">${esc(c.name)}</div><div class="contact-sub">${esc([c.grade,c.topic].filter(Boolean).join(' · '))}</div></div><span class="ch-badge" style="background:#f1f1f1;color:#555">${esc(c.grade)}</span></div>`;
+    return `<div class="contact-item" onclick="openCustomerEdit('${attr(c.id)}')"><div class="avatar" style="background:${av.bg};color:${av.c}">${esc(initials(c.name))}</div><div class="contact-info"><div class="contact-name">${esc(c.name)}</div><div class="contact-sub">${esc([c.grade,c.topic].filter(Boolean).join(' · '))}</div></div><span class="ch-badge" style="background:#f1f1f1;color:#555">${esc(c.grade)}</span></div>`;
   }).join('');
 }
 
@@ -498,6 +527,54 @@ function renderManager(){
   }).join('');
 }
 
+function openCustomerEdit(id){
+  const c=customers.find(x=>normId(x.id)===normId(id));
+  if(!c){toast('找不到客戶資料，請先重新整理',true);return}
+  currentCustomerId=c.id;
+  document.getElementById('ce-name').value=c.name||'';
+  document.getElementById('ce-nick').value=c.nick||'';
+  document.getElementById('ce-phone').value=c.phone||'';
+  document.getElementById('ce-birthday').value=(c.birthday||'').slice(0,10);
+  document.getElementById('ce-note').value=c.note||c.topic||'';
+  showView('customer-edit');
+}
+
+function buildCustomerProps(d){
+  const p={};
+  if(d.name!==undefined)p['客戶名稱']={title:[{text:{content:d.name||'未命名'}}]};
+  if(d.nick!==undefined)p['IG帳號']={rich_text:[{text:{content:d.nick||''}}]};
+  if(d.phone!==undefined)p['聯絡方式']={rich_text:[{text:{content:d.phone||''}}]};
+  if(d.birthday!==undefined)p['出生年月日']=d.birthday?{date:{start:d.birthday}}:{date:null};
+  if(d.note!==undefined)p['下次見面主題']={rich_text:[{text:{content:d.note||''}}]};
+  return p;
+}
+
+async function saveCustomerEdit(){
+  if(!currentCustomerId)return;
+  const btn=document.getElementById('ce-save');
+  if(btn){btn.disabled=true;btn.innerHTML='<div class="spinner"></div>'}
+  const updates={
+    name:document.getElementById('ce-name').value.trim(),
+    nick:document.getElementById('ce-nick').value.trim(),
+    phone:document.getElementById('ce-phone').value.trim(),
+    birthday:document.getElementById('ce-birthday').value,
+    note:document.getElementById('ce-note').value.trim(),
+  };
+  try{
+    await notionAPI('PATCH',`pages/${currentCustomerId}`,{properties:buildCustomerProps(updates)});
+    const c=customers.find(x=>normId(x.id)===normId(currentCustomerId));
+    if(c){
+      Object.assign(c,updates,{topic:updates.note||c.topic});
+      contacts.forEach(r=>{if(normId(r.customerId)===normId(currentCustomerId))r.name=updates.name||r.name});
+    }
+    toast('客戶資料已更新');
+    showView('list');
+  }catch(e){
+    toast('更新失敗：'+e.message,true);
+  }
+  if(btn){btn.disabled=false;btn.innerHTML='更新客戶'}
+}
+
 function renderChPills(id,cur){
   const el=document.getElementById(id);if(!el)return;
   let chosen=cur||CHANNELS[0];
@@ -510,7 +587,7 @@ function showDetail(id){currentId=id;editMode=false;const c=contacts.find(x=>x.i
 function renderDetailView(c){
   const av=avColor(c.name);const cc=chColor(c.channel);
   document.getElementById('detail-body').innerHTML=`
-    <div class="detail-avatar" title="開啟客戶資訊頁" onclick="openCustomerPage(event,'${attr(c.customerId)}')" style="background:${av.bg};color:${av.c};cursor:pointer">${esc(initials(c.name))}</div>
+    <div class="detail-avatar" title="編輯客戶資料" onclick="openCustomerPage(event,'${attr(c.customerId)}')" style="background:${av.bg};color:${av.c};cursor:pointer">${esc(initials(c.name))}</div>
     <div class="detail-name">${esc(c.name)}</div>
     <div class="detail-meta">${c.channel?`<span class="ch-badge" style="background:${cc.bg};color:${cc.c};display:inline-block;margin-right:6px">${esc(c.channel)}</span>`:''}<span style="font-size:13px;color:var(--text3)">${esc(c.lastContact||'')}</span></div>
     <div class="field-group">
