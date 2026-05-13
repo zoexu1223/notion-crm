@@ -289,10 +289,10 @@
       <button class="btn-secondary" onclick="showView('list')" style="width:auto;margin:0;padding:14px 18px">關閉</button>
     </div>
     <div class="customer-tabs">
-      <div class="customer-tab on" id="customer-tab-kyc" onclick="setCustomerTab('kyc')">KYC</div>
-      <div class="customer-tab" id="customer-tab-history" onclick="setCustomerTab('history')">互動時間軸</div>
+      <div class="customer-tab on" id="customer-tab-history" onclick="setCustomerTab('history')">互動時間軸</div>
+      <div class="customer-tab" id="customer-tab-kyc" onclick="setCustomerTab('kyc')">KYC</div>
     </div>
-    <div class="customer-panel on" id="customer-panel-kyc">
+    <div class="customer-panel" id="customer-panel-kyc">
       <div class="edit-grid">
         <div class="edit-field"><label>時間</label><input class="edit-input" id="ce-time" disabled /></div>
         <div class="edit-field"><label>姓名</label><input class="edit-input" id="ce-name" /></div>
@@ -321,7 +321,7 @@
         <button class="btn-primary" id="ce-save" onclick="saveCustomerEdit()">更新客戶</button>
       </div>
     </div>
-    <div class="customer-panel" id="customer-panel-history">
+    <div class="customer-panel on" id="customer-panel-history">
       <div class="timeline">
       <div class="timeline-head">
         <div class="timeline-title">互動時間軸</div>
@@ -690,7 +690,7 @@ function openCustomerEdit(id){
   document.getElementById('ce-policy-summary').value=c.policySummary||'';
   document.getElementById('ce-policy-checkup').value=c.policyCheckup||'';
   renderCustomerHistory(c.id);
-  setCustomerTab('kyc');
+  setCustomerTab('history');
   showView('customer-edit');
 }
 
