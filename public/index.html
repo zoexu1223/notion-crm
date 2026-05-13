@@ -182,6 +182,7 @@ async function loadContacts(){
   try{
     const data=await notionAPI('POST',`databases/${dbId}/query`,{page_size:100,sorts:[{timestamp:'created_time',direction:'descending'}]});
     contacts=(data.results||[]).map(p=>({
+      if(data.results?.[0])console.log(JSON.stringify(data.results[0].properties));
       id:p.id,
       name:p.properties?.['客戶']?.title?.[0]?.plain_text||p.properties?.['客戶']?.title?.[0]?.text?.content||'無名稱',
       channel:p.properties?.['管道']?.select?.name||'',
