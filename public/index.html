@@ -121,6 +121,15 @@
   .edit-actions .btn-secondary,.edit-actions .btn-primary{width:auto;margin:0;flex:1}
   .edit-section{grid-column:1 / -1;font-size:14px;font-weight:800;color:#111827;border-top:1px solid var(--border);padding-top:14px;margin-top:2px}
   .edit-help{font-size:12px;color:#94a3b8;margin-top:6px;line-height:1.5}
+  .timeline{margin-top:26px;border-top:1px solid var(--border);padding-top:18px}
+  .timeline-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px}
+  .timeline-title{font-size:18px;font-weight:800}
+  .timeline-add{border:1px solid var(--border2);background:var(--bg);border-radius:18px;padding:8px 12px;font-size:13px;font-weight:700;color:var(--text);cursor:pointer}
+  .timeline-item{padding:13px 0;border-bottom:1px solid var(--border)}
+  .timeline-meta{display:flex;gap:8px;align-items:center;margin-bottom:6px;color:var(--text3);font-size:12px;font-weight:700}
+  .timeline-talk{font-size:15px;line-height:1.55;color:var(--text)}
+  .timeline-next{font-size:13px;line-height:1.5;color:var(--text2);margin-top:5px}
+  .timeline-empty{font-size:14px;color:var(--text3);padding:14px 0}
   @media(min-width:700px){
     body{max-width:720px}
     .edit-grid{grid-template-columns:1fr 1fr}
@@ -255,10 +264,19 @@
       <div class="edit-field"><label>薪水</label><input class="edit-input" id="ce-salary" inputmode="decimal" /></div>
       <div class="edit-field"><label>目標</label><input class="edit-input" id="ce-goal" /></div>
       <div class="edit-field full"><label>補充說明</label><textarea class="edit-input" id="ce-note"></textarea><div class="edit-help">對應 Notion 的「配置建議」。</div></div>
+      <div class="edit-field full"><label>保單統整</label><input class="edit-input" id="ce-policy-summary" placeholder="https://..." /></div>
+      <div class="edit-field full"><label>保單健檢</label><input class="edit-input" id="ce-policy-checkup" placeholder="https://..." /></div>
     </div>
     <div class="edit-actions">
       <button class="btn-secondary" onclick="showView('list')">取消</button>
       <button class="btn-primary" id="ce-save" onclick="saveCustomerEdit()">更新客戶</button>
+    </div>
+    <div class="timeline">
+      <div class="timeline-head">
+        <div class="timeline-title">互動時間軸</div>
+        <button class="timeline-add" onclick="startInteractionForCustomer()">＋ 新增互動</button>
+      </div>
+      <div id="ce-history"></div>
     </div>
   </div>
 </div>
@@ -385,6 +403,8 @@ async function loadContacts(){
         salary:numberText(props['薪水']),
         goal:richText(props['目標']),
         note:richText(props['配置建議']),
+        policySummary:urlText(props['保單統整']),
+        policyCheckup:urlText(props['保單健檢']),
         topic,
         status,
         reminder:formulaText(props['建議下次聯絡日'])||formulaText(props['預計約訪日'])||formulaText(props['定聯提醒']),
@@ -409,6 +429,7 @@ async function loadContacts(){
         talked:(props['聊了什麼']?.rich_text||[]).map(t=>t.plain_text||'').join('')||'',
         nextTopic:(props['下次話題']?.rich_text||[]).map(t=>t.plain_text||'').join('')||'',
         lastContact:props['最後聯絡日期']?.date?.start||p.created_time?.split('T')[0]||today,
+        createdTime:p.created_time||'',
         created:p.created_time?.split('T')[0]||today,
       };
     });
@@ -583,7 +604,32 @@ function openCustomerEdit(id){
   document.getElementById('ce-salary').value=c.salary||'';
   document.getElementById('ce-goal').value=c.goal||'';
   document.getElementById('ce-note').value=c.note||'';
+  document.getElementById('ce-policy-summary').value=c.policySummary||'';
+  document.getElementById('ce-policy-checkup').value=c.policyCheckup||'';
+  renderCustomerHistory(c.id);
   showView('customer-edit');
+}
+
+function renderCustomerHistory(customerId){
+  const el=document.getElementById('ce-history');if(!el)return;
+  const list=contacts
+    .filter(x=>normId(x.customerId)===normId(customerId))
+    .sort((a,b)=>(b.createdTime||b.created||'').localeCompare(a.createdTime||a.created||''));
+  if(!list.length){el.innerHTML='<div class="timeline-empty">尚無互動紀錄。可以從這裡新增第一筆。</div>';return}
+  el.innerHTML=list.map(x=>`
+    <div class="timeline-item" onclick="showDetail('${attr(x.id)}')">
+      <div class="timeline-meta"><span>${esc(x.lastContact||x.created||'')}</span>${x.channel?`<span class="ch-badge" style="background:${chColor(x.channel).bg};color:${chColor(x.channel).c}">${esc(x.channel)}</span>`:''}</div>
+      <div class="timeline-talk">${esc(x.talked||'尚無聊天內容')}</div>
+      ${x.nextTopic?`<div class="timeline-next">下次話題：${esc(x.nextTopic)}</div>`:''}
+    </div>
+  `).join('');
+}
+
+function startInteractionForCustomer(){
+  const c=customers.find(x=>normId(x.id)===normId(currentCustomerId));
+  if(!c)return;
+  showView('add');
+  selectCustomer(c.id,c.name);
 }
 
 function buildCustomerProps(d){
@@ -604,6 +650,8 @@ function buildCustomerProps(d){
   if(d.salary!==undefined&&validNumber(d.salary))p['薪水']={number:d.salary?Number(d.salary):null};
   if(d.goal!==undefined)p['目標']={rich_text:[{text:{content:d.goal||''}}]};
   if(d.note!==undefined)p['配置建議']={rich_text:[{text:{content:d.note||''}}]};
+  if(d.policySummary!==undefined&&validUrl(d.policySummary))p['保單統整']={url:d.policySummary||null};
+  if(d.policyCheckup!==undefined&&validUrl(d.policyCheckup))p['保單健檢']={url:d.policyCheckup||null};
   return p;
 }
 
@@ -628,9 +676,13 @@ async function saveCustomerEdit(){
     salary:document.getElementById('ce-salary').value.trim(),
     goal:document.getElementById('ce-goal').value.trim(),
     note:document.getElementById('ce-note').value.trim(),
+    policySummary:document.getElementById('ce-policy-summary').value.trim(),
+    policyCheckup:document.getElementById('ce-policy-checkup').value.trim(),
   };
   try{
     if(updates.policy&&!validUrl(updates.policy))toast('現有保單不是網址，已略過這欄',true);
+    if(updates.policySummary&&!validUrl(updates.policySummary))toast('保單統整不是網址，已略過這欄',true);
+    if(updates.policyCheckup&&!validUrl(updates.policyCheckup))toast('保單健檢不是網址，已略過這欄',true);
     if(updates.salary&&!validNumber(updates.salary))toast('薪水不是數字，已略過這欄',true);
     await notionAPI('PATCH',`pages/${currentCustomerId}`,{properties:buildCustomerProps(updates)});
     const c=customers.find(x=>normId(x.id)===normId(currentCustomerId));
