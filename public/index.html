@@ -82,6 +82,14 @@
   .sync-dot.ok{background:#4CAF50}.sync-dot.loading{background:#FFC107}.sync-dot.err{background:var(--red)}
   .fab-area{position:fixed;bottom:calc(var(--safe-bot) + 20px);right:20px}
   .fab{width:52px;height:52px;border-radius:50%;background:var(--text);color:var(--bg);border:none;font-size:28px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;box-shadow:0 2px 8px rgba(0,0,0,0.2)}
+  .customer-search{position:relative}
+  .customer-dropdown{position:absolute;top:100%;left:0;right:0;background:var(--bg);border:0.5px solid var(--border2);border-radius:var(--radius);z-index:20;max-height:200px;overflow-y:auto;margin-top:4px}
+  .customer-option{padding:10px 12px;cursor:pointer;font-size:14px;border-bottom:0.5px solid var(--border)}
+  .customer-option:last-child{border-bottom:none}
+  .customer-option:hover{background:var(--bg2)}
+  .selected-customer{display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--bg2);border-radius:var(--radius);border:0.5px solid var(--border2)}
+  .selected-customer-name{font-size:14px;font-weight:500;flex:1}
+  .clear-customer{background:none;border:none;color:var(--text3);cursor:pointer;font-size:16px;padding:0}
 </style>
 </head>
 <body>
@@ -120,7 +128,7 @@
     <div class="fpill" onclick="setFilter(this,'IG')">IG</div>
     <div class="fpill" onclick="setFilter(this,'LINE')">LINE</div>
     <div class="fpill" onclick="setFilter(this,'電話')">電話</div>
-    <div class="fpill" onclick="setFilter(this,'面訪')">面訪</div>
+    <div class="fpill" onclick="setFilter(this,'見面')">見面</div>
     <div class="fpill" onclick="setFilter(this,'其他')">其他</div>
   </div>
   <div class="stats-row">
@@ -141,7 +149,17 @@
     </div>
     <div style="height:16px"></div>
     <div class="field-group">
-      <div class="field-row"><div class="field-label">客戶姓名 *</div><input class="field-input" id="f-name" placeholder="王小明" /></div>
+      <div class="field-row">
+        <div class="field-label">客戶 *</div>
+        <div class="customer-search">
+          <div id="selected-customer-display" style="display:none" class="selected-customer">
+            <span class="selected-customer-name" id="selected-customer-name"></span>
+            <button class="clear-customer" onclick="clearCustomer()">✕</button>
+          </div>
+          <input class="field-input" id="customer-search-input" placeholder="搜尋客戶姓名..." oninput="searchCustomers()" autocomplete="off" />
+          <div class="customer-dropdown" id="customer-dropdown" style="display:none"></div>
+        </div>
+      </div>
       <div class="field-row"><div class="field-label">管道</div><div class="ch-pills" id="add-ch-pills"></div></div>
       <div class="field-row"><div class="field-label">聊了什麼</div><textarea class="field-input" id="f-talked" rows="4" placeholder="今天聊的內容、對方的狀況..."></textarea></div>
       <div class="field-row"><div class="field-label">下次話題</div><textarea class="field-input" id="f-next" rows="2" placeholder="下次見面要聊的事..."></textarea></div>
@@ -164,30 +182,35 @@
 
 <script>
 const DB_KEY='notion_crm_db';
-const CHANNELS=['IG','LINE','電話','面訪','其他'];
+const CUSTOMER_DB='342b637dc33580698559d12ce28a67d1';
+const CHANNELS=['IG','LINE','電話','見面','其他'];
 const AV_COLORS=[{bg:'#E1F5EE',c:'#0F6E56'},{bg:'#EEEDFE',c:'#534AB7'},{bg:'#FAECE7',c:'#993C1D'},{bg:'#FAEEDA',c:'#854F0B'},{bg:'#E6F1FB',c:'#185FA5'}];
-const CH_COLORS={'IG':{bg:'#FAEEDA',c:'#854F0B'},'LINE':{bg:'#EAF3DE',c:'#3B6D11'},'電話':{bg:'#E6F1FB',c:'#185FA5'},'面訪':{bg:'#EEEDFE',c:'#534AB7'},'其他':{bg:'#f1f1f1',c:'#888'}};
+const CH_COLORS={'IG':{bg:'#FAEEDA',c:'#854F0B'},'LINE':{bg:'#EAF3DE',c:'#3B6D11'},'電話':{bg:'#E6F1FB',c:'#185FA5'},'見面':{bg:'#EEEDFE',c:'#534AB7'},'其他':{bg:'#f1f1f1',c:'#888'}};
 let dbId='',contacts=[],filterCh='',editMode=false,currentId=null;
+let selectedCustomerId=null,selectedCustomerName='',customerSearchTimeout=null;
 const today=new Date().toISOString().split('T')[0];
+
 function initials(n){return(n||'??').trim().slice(0,2).toUpperCase()}
 function avColor(n){let h=0;for(let c of(n||''))h=(h*31+c.charCodeAt(0))&0xffff;return AV_COLORS[h%AV_COLORS.length]}
 function chColor(ch){return CH_COLORS[ch]||{bg:'#f1f1f1',c:'#888'}}
-function showView(v){['setup','list','detail','add'].forEach(x=>document.getElementById('view-'+x).style.display='none');document.getElementById('view-'+v).style.display='block';if(v==='list')renderList()}
+function showView(v){['setup','list','detail','add'].forEach(x=>document.getElementById('view-'+x).style.display='none');document.getElementById('view-'+v).style.display='block';if(v==='list')renderList();if(v==='add')resetAddForm()}
 function toast(msg,isErr){const t=document.getElementById('toast');t.textContent=msg;t.className='toast show'+(isErr?' err':'');clearTimeout(t._tid);t._tid=setTimeout(()=>t.className='toast',2500)}
 function setSyncDot(s){const d=document.getElementById('sync-dot');if(d)d.className='sync-dot '+(s==='ok'?'ok':s==='loading'?'loading':'err')}
 async function notionAPI(method,path,body){const res=await fetch('/api/notion/'+path,{method,headers:{'Content-Type':'application/json'},body:body?JSON.stringify(body):undefined});if(!res.ok)throw new Error('API '+res.status);return res.json()}
 function doConnect(){const db=document.getElementById('cfg-db').value.trim().replace(/-/g,'');if(!db||db.length<32){toast('請填入正確的 Database ID',true);return}dbId=db;localStorage.setItem(DB_KEY,dbId);showView('list');loadContacts()}
+
 async function loadContacts(){
   setSyncDot('loading');
   try{
     const data=await notionAPI('POST',`databases/${dbId}/query`,{page_size:100,sorts:[{timestamp:'created_time',direction:'descending'}]});
     contacts=(data.results||[]).map(p=>{
       const props=p.properties||{};
-      const titleKey=Object.keys(props).find(k=>props[k].type==='title');
-      const name=titleKey?(props[titleKey].title||[]).map(t=>t.plain_text||'').join('')||'無名稱':'無名稱';
+      const customerRel=props['客戶']?.relation||[];
+      const customerName=customerRel.length>0?(customerRel[0]._name||''):'';
       return {
         id:p.id,
-        name,
+        name:customerName||'未連結客戶',
+        customerId:customerRel[0]?.id||'',
         channel:props['管道']?.select?.name||'',
         talked:(props['聊了什麼']?.rich_text||[]).map(t=>t.plain_text||'').join('')||'',
         nextTopic:(props['下次話題']?.rich_text||[]).map(t=>t.plain_text||'').join('')||'',
@@ -195,11 +218,75 @@ async function loadContacts(){
         created:p.created_time?.split('T')[0]||today,
       };
     });
+    await enrichCustomerNames();
     setSyncDot('ok');
   }catch(e){setSyncDot('err');toast('同步失敗，請確認 Integration 已加入資料庫',true)}
   renderList()
 }
+
+async function enrichCustomerNames(){
+  const ids=[...new Set(contacts.filter(c=>c.customerId&&c.name==='未連結客戶').map(c=>c.customerId))];
+  if(!ids.length)return;
+  try{
+    for(const id of ids){
+      const p=await notionAPI('GET',`pages/${id}`);
+      const props=p.properties||{};
+      const titleKey=Object.keys(props).find(k=>props[k].type==='title');
+      const name=titleKey?(props[titleKey].title||[]).map(t=>t.plain_text||'').join(''):'';
+      if(name) contacts.filter(c=>c.customerId===id).forEach(c=>c.name=name);
+    }
+  }catch(e){}
+}
+
+async function searchCustomers(){
+  const q=document.getElementById('customer-search-input').value.trim();
+  const dd=document.getElementById('customer-dropdown');
+  if(!q){dd.style.display='none';return}
+  clearTimeout(customerSearchTimeout);
+  customerSearchTimeout=setTimeout(async()=>{
+    try{
+      const data=await notionAPI('POST',`databases/${CUSTOMER_DB}/query`,{
+        page_size:10,
+        filter:{property:'客戶名稱',title:{contains:q}}
+      });
+      const results=data.results||[];
+      if(!results.length){dd.innerHTML='<div class="customer-option" style="color:var(--text3)">找不到客戶</div>';dd.style.display='block';return}
+      dd.innerHTML=results.map(p=>{
+        const props=p.properties||{};
+        const titleKey=Object.keys(props).find(k=>props[k].type==='title');
+        const name=titleKey?(props[titleKey].title||[]).map(t=>t.plain_text||'').join(''):'';
+        return`<div class="customer-option" onclick="selectCustomer('${p.id}','${name.replace(/'/g,"\\'")}')"> ${name}</div>`;
+      }).join('');
+      dd.style.display='block';
+    }catch(e){dd.style.display='none'}
+  },300);
+}
+
+function selectCustomer(id,name){
+  selectedCustomerId=id;
+  selectedCustomerName=name;
+  document.getElementById('customer-search-input').style.display='none';
+  document.getElementById('customer-dropdown').style.display='none';
+  const disp=document.getElementById('selected-customer-display');
+  document.getElementById('selected-customer-name').textContent=name;
+  disp.style.display='flex';
+}
+
+function clearCustomer(){
+  selectedCustomerId=null;selectedCustomerName='';
+  document.getElementById('customer-search-input').style.display='block';
+  document.getElementById('customer-search-input').value='';
+  document.getElementById('selected-customer-display').style.display='none';
+}
+
+function resetAddForm(){
+  clearCustomer();
+  ['f-talked','f-next'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=''});
+  renderChPills('add-ch-pills',CHANNELS[0]);
+}
+
 function setFilter(el,v){document.querySelectorAll('.fpill').forEach(p=>p.classList.remove('on'));el.classList.add('on');filterCh=v;renderList()}
+
 function renderList(){
   const q=(document.getElementById('search-input')?.value||'').toLowerCase();
   const list=contacts.filter(c=>{
@@ -214,13 +301,16 @@ function renderList(){
   const cc=c=>{const cv=chColor(c.channel);return c.channel?`<span class="ch-badge" style="background:${cv.bg};color:${cv.c}">${c.channel}</span>`:''};
   el.innerHTML=list.map(c=>{const av=avColor(c.name);return`<div class="contact-item" onclick="showDetail('${c.id}')"><div class="avatar" style="background:${av.bg};color:${av.c}">${initials(c.name)}</div><div class="contact-info"><div class="contact-name">${c.name}</div><div class="contact-sub">${c.talked||'尚無紀錄'}</div></div>${cc(c)}</div>`}).join('')
 }
+
 function renderChPills(id,cur){
   const el=document.getElementById(id);if(!el)return;
   let chosen=cur||CHANNELS[0];
   const r=()=>{el.innerHTML=CHANNELS.map(s=>`<div class="ch-pill${s===chosen?' on':''}" onclick="this.parentElement._pick('${s}')">${s}</div>`).join('')};
   el._pick=s=>{chosen=s;r()};el._get=()=>chosen;r();
 }
+
 function showDetail(id){currentId=id;editMode=false;const c=contacts.find(x=>x.id===id);if(!c)return;document.getElementById('detail-title').textContent=c.name;document.getElementById('edit-btn').textContent='✏️';renderDetailView(c);showView('detail')}
+
 function renderDetailView(c){
   const av=avColor(c.name);const cc=chColor(c.channel);
   document.getElementById('detail-body').innerHTML=`
@@ -236,11 +326,11 @@ function renderDetailView(c){
     <hr class="divider">
     <div class="add-log-btn" onclick="showUpdateLog('${c.id}')">＋ 更新今天的互動</div>`;
 }
+
 function renderDetailEdit(c){
   document.getElementById('detail-body').innerHTML=`
     <div style="height:16px"></div>
     <div class="field-group">
-      <div class="field-row"><div class="field-label">客戶姓名</div><input class="field-input" id="e-name" value="${c.name}"/></div>
       <div class="field-row"><div class="field-label">管道</div><div class="ch-pills" id="edit-ch-pills"></div></div>
       <div class="field-row"><div class="field-label">聊了什麼</div><textarea class="field-input" id="e-talked" rows="4">${c.talked}</textarea></div>
       <div class="field-row"><div class="field-label">下次話題</div><textarea class="field-input" id="e-next" rows="2">${c.nextTopic}</textarea></div>
@@ -250,7 +340,9 @@ function renderDetailEdit(c){
     <div style="height:16px"></div>`;
   renderChPills('edit-ch-pills',c.channel);
 }
+
 function toggleEdit(){const c=contacts.find(x=>x.id===currentId);if(!c)return;editMode=!editMode;document.getElementById('edit-btn').textContent=editMode?'✕':'✏️';if(editMode)renderDetailEdit(c);else renderDetailView(c)}
+
 function showUpdateLog(id){
   document.querySelector('.add-log-btn')?.remove();
   const body=document.getElementById('detail-body');
@@ -259,45 +351,61 @@ function showUpdateLog(id){
   f.innerHTML=`<div class="field-label" style="margin-bottom:8px">今天聊了什麼</div><textarea class="field-input" id="log-talked" rows="3" placeholder="更新互動內容..."></textarea><div class="field-label" style="margin:10px 0 6px">下次話題（選填）</div><textarea class="field-input" id="log-next" rows="2" placeholder="下次要聊的事..."></textarea><div style="margin-top:10px"><button class="btn-primary" style="margin:0;padding:10px;font-size:14px" onclick="submitLog('${id}')">記錄並同步</button></div>`;
   body.appendChild(f);f.querySelector('textarea').focus();
 }
+
 async function submitLog(id){
   const talked=document.getElementById('log-talked')?.value?.trim();
   if(!talked){toast('請輸入內容',true);return}
   const c=contacts.find(x=>x.id===id);if(!c)return;
   const next=document.getElementById('log-next')?.value?.trim()||c.nextTopic;
-  await patchNotion(id,{talked,nextTopic:next,lastContact:today,name:c.name,channel:c.channel});
+  await patchNotion(id,{talked,nextTopic:next,lastContact:today,channel:c.channel});
   c.talked=talked;c.nextTopic=next;c.lastContact=today;
   toast('已記錄！');renderDetailView(c);
 }
+
 function buildProps(d){
   const p={};
-  if(d.name)p['客戶']={title:[{text:{content:d.name}}]};
+  if(d.customerId)p['客戶']={relation:[{id:d.customerId}]};
   if(d.channel)p['管道']={select:{name:d.channel}};
   if(d.talked!==undefined)p['聊了什麼']={rich_text:[{text:{content:d.talked||''}}]};
   if(d.nextTopic!==undefined)p['下次話題']={rich_text:[{text:{content:d.nextTopic||''}}]};
   if(d.lastContact)p['最後聯絡']={date:{start:d.lastContact}};
   return p;
 }
+
 async function submitContact(){
-  const name=document.getElementById('f-name').value.trim();
-  if(!name){toast('客戶姓名必填',true);return}
+  if(!selectedCustomerId){toast('請選擇客戶',true);return}
   const btn=document.getElementById('add-btn');btn.disabled=true;btn.innerHTML='<div class="spinner"></div>';
-  const data={name,channel:document.getElementById('add-ch-pills')?._get()||'',talked:document.getElementById('f-talked').value.trim(),nextTopic:document.getElementById('f-next').value.trim(),lastContact:today,created:today};
+  const data={
+    customerId:selectedCustomerId,
+    name:selectedCustomerName,
+    channel:document.getElementById('add-ch-pills')?._get()||'',
+    talked:document.getElementById('f-talked').value.trim(),
+    nextTopic:document.getElementById('f-next').value.trim(),
+    lastContact:today,
+    created:today
+  };
   try{
     const res=await notionAPI('POST','pages',{parent:{database_id:dbId},properties:buildProps(data)});
     data.id=res.id;contacts.unshift(data);
-    ['f-name','f-talked','f-next'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=''});
-    renderChPills('add-ch-pills',CHANNELS[0]);toast('已新增並同步！');showView('list');
-  }catch(e){toast('同步失敗，請稍後再試',true)}
+    toast('已新增並同步！');showView('list');
+  }catch(e){toast('同步失敗：'+e.message,true)}
   btn.disabled=false;btn.innerHTML='新增並同步到 Notion';
 }
+
 async function saveEdit(id){
   const btn=document.getElementById('save-btn');if(btn){btn.disabled=true;btn.innerHTML='<div class="spinner"></div>'}
   const c=contacts.find(x=>x.id===id);if(!c)return;
-  const updates={name:document.getElementById('e-name').value.trim()||c.name,channel:document.getElementById('edit-ch-pills')?._get()||c.channel,talked:document.getElementById('e-talked').value.trim(),nextTopic:document.getElementById('e-next').value.trim(),lastContact:c.lastContact};
-  try{await patchNotion(id,updates);Object.assign(c,updates);toast('已儲存！');editMode=false;document.getElementById('detail-title').textContent=c.name;document.getElementById('edit-btn').textContent='✏️';renderDetailView(c)}
+  const updates={channel:document.getElementById('edit-ch-pills')?._get()||c.channel,talked:document.getElementById('e-talked').value.trim(),nextTopic:document.getElementById('e-next').value.trim(),lastContact:c.lastContact};
+  try{await patchNotion(id,updates);Object.assign(c,updates);toast('已儲存！');editMode=false;document.getElementById('edit-btn').textContent='✏️';renderDetailView(c)}
   catch(e){toast('儲存失敗',true);if(btn){btn.disabled=false;btn.innerHTML='儲存並同步'}}
 }
-async function patchNotion(id,data){if(!id||id.startsWith('local'))return;await notionAPI('PATCH',`pages/${id}`,{properties:buildProps(data)})}
+
+async function patchNotion(id,data){if(!id)return;await notionAPI('PATCH',`pages/${id}`,{properties:buildProps(data)})}
+
+document.addEventListener('click',e=>{
+  if(!e.target.closest('.customer-search'))document.getElementById('customer-dropdown').style.display='none';
+});
+
 window.addEventListener('DOMContentLoaded',()=>{
   renderChPills('add-ch-pills',CHANNELS[0]);
   const saved=localStorage.getItem(DB_KEY);
