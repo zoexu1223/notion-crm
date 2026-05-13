@@ -12,7 +12,10 @@
   :root{--bg:#ffffff;--bg2:#f5f5f4;--bg3:#eeece8;--text:#1a1a1a;--text2:#6b6b68;--text3:#a8a8a4;--border:rgba(0,0,0,0.1);--border2:rgba(0,0,0,0.18);--radius:10px;--radius-lg:14px;--red:#E24B4A;--safe-top:env(safe-area-inset-top,0px);--safe-bot:env(safe-area-inset-bottom,0px);}
   @media(prefers-color-scheme:dark){:root{--bg:#1c1c1e;--bg2:#2c2c2e;--bg3:#3a3a3c;--text:#f2f2f7;--text2:#aeaeb2;--text3:#636366;--border:rgba(255,255,255,0.1);--border2:rgba(255,255,255,0.18);}}
   *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  html,body{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
   body{font-family:-apple-system,'SF Pro Text',sans-serif;background:var(--bg);color:var(--text);max-width:430px;margin:0 auto;min-height:100dvh}
+  button,.main-tab,.fpill,.ch-pill,.contact-item,.track-row,.fold-row,.timeline-content,.sheet-btn,.mini-item{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+  input,textarea,select{user-select:text;-webkit-user-select:text}
   .topbar{padding:calc(var(--safe-top) + 12px) 16px 12px;background:var(--bg);border-bottom:0.5px solid var(--border);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:10}
   .topbar-title{font-size:17px;font-weight:600}
   .btn-icon{width:34px;height:34px;border-radius:50%;background:var(--text);color:var(--bg);border:none;font-size:22px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1}
@@ -84,12 +87,12 @@
   .mini-meta{font-size:12px;color:var(--text3);margin-top:4px}
   .action-sheet{position:fixed;left:0;right:0;bottom:0;z-index:140;display:none}
   .action-sheet.show{display:block}
-  .sheet-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.18)}
-  .sheet-panel{position:relative;margin:0 auto;padding:10px 12px calc(var(--safe-bot) + 12px);max-width:430px;background:var(--bg);border-radius:18px 18px 0 0;box-shadow:0 -12px 34px rgba(0,0,0,.18)}
-  .sheet-title{padding:10px 8px 12px;font-size:13px;color:var(--text2);font-weight:700;text-align:center;border-bottom:1px solid var(--border)}
-  .sheet-btn{width:100%;padding:15px;border:none;background:var(--bg);font-size:16px;font-weight:800;color:var(--text);cursor:pointer;border-bottom:1px solid var(--border)}
+  .sheet-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.16)}
+  .sheet-panel{position:relative;margin:0 auto;padding:8px 12px calc(var(--safe-bot) + 12px);max-width:430px;background:var(--bg);border-radius:18px 18px 0 0;box-shadow:0 -12px 34px rgba(0,0,0,.16)}
+  .sheet-title{padding:11px 8px 12px;font-size:13px;color:var(--text2);font-weight:600;text-align:center;border-bottom:0.5px solid var(--border)}
+  .sheet-btn{width:100%;padding:14px;border:none;background:var(--bg);font-size:15px;font-weight:600;color:var(--text);cursor:pointer;border-bottom:0.5px solid var(--border);font-family:inherit}
   .sheet-btn.danger{color:var(--red)}
-  .sheet-btn.cancel{margin-top:8px;border:1px solid var(--border);border-radius:14px;background:var(--bg2);color:var(--text2)}
+  .sheet-btn.cancel{margin-top:8px;border:0.5px solid var(--border2);border-radius:var(--radius-lg);background:var(--bg2);color:var(--text2)}
   .spinner{width:20px;height:20px;border:2px solid rgba(255,255,255,0.3);border-top-color:var(--bg);border-radius:50%;animation:spin .7s linear infinite}
   @keyframes spin{to{transform:rotate(360deg)}}
   .sync-dot{width:8px;height:8px;border-radius:50%;background:#ccc;transition:background .3s}
@@ -129,29 +132,30 @@
   .due-badge.ok{background:#EAF3DE;color:#3B6D11}
   .fold-row{display:flex;align-items:center;justify-content:space-between;padding:13px 16px;background:var(--bg2);border-bottom:0.5px solid var(--border);font-size:15px;font-weight:700;color:var(--text2);cursor:pointer}
   .list-note{padding:12px 16px;color:var(--text2);font-size:13px;line-height:1.6;background:var(--bg2);border-bottom:0.5px solid var(--border)}
-  .edit-shell{padding:24px 16px calc(var(--safe-bot) + 90px)}
-  .edit-kicker{font-size:13px;color:#64748b;font-weight:700;margin-bottom:12px}
-  .edit-title{font-size:28px;font-weight:800;line-height:1.2;margin-bottom:24px;color:#111827}
-  .edit-grid{display:grid;grid-template-columns:1fr;gap:16px}
-  .edit-field label{display:block;font-size:14px;color:#64748b;font-weight:700;margin-bottom:8px}
-  .edit-input{width:100%;border:1px solid #d8e3f3;border-radius:14px;background:#fff;color:#050505;font-size:17px;font-weight:700;padding:16px 18px;outline:none;font-family:inherit}
-  .edit-input:focus{border-color:#9bb8e5;box-shadow:0 0 0 3px rgba(37,99,235,.08)}
-  textarea.edit-input{min-height:132px;resize:vertical;line-height:1.6}
-  .edit-actions{display:flex;gap:12px;margin-top:22px}
+  .edit-shell{padding:calc(var(--safe-top) + 16px) 16px calc(var(--safe-bot) + 88px);background:var(--bg);min-height:100dvh}
+  .edit-kicker{font-size:12px;color:var(--text3);font-weight:600;margin-bottom:6px}
+  .edit-title{font-size:22px;font-weight:700;line-height:1.25;margin-bottom:18px;color:var(--text);letter-spacing:0}
+  .edit-grid{display:grid;grid-template-columns:1fr;gap:14px}
+  .edit-field label{display:block;font-size:11px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.04em;margin-bottom:5px}
+  .edit-input{width:100%;border:0.5px solid var(--border2);border-radius:var(--radius);background:var(--bg2);color:var(--text);font-size:15px;font-weight:500;padding:10px 12px;outline:none;font-family:inherit;transition:border-color .15s,background .15s}
+  .edit-input:focus{border-color:var(--text2);background:var(--bg);box-shadow:none}
+  .edit-input:disabled{color:var(--text2);opacity:1}
+  textarea.edit-input{min-height:118px;resize:vertical;line-height:1.5}
+  .edit-actions{display:flex;gap:10px;margin-top:18px}
   .edit-actions .btn-secondary,.edit-actions .btn-primary{width:auto;margin:0;flex:1}
-  .edit-section{grid-column:1 / -1;font-size:14px;font-weight:800;color:#111827;border-top:1px solid var(--border);padding-top:14px;margin-top:2px}
-  .edit-help{font-size:12px;color:#94a3b8;margin-top:6px;line-height:1.5}
-  .customer-tabs{display:grid;grid-template-columns:1fr 1fr;border:1px solid var(--border);border-radius:14px;overflow:hidden;margin-bottom:18px;background:var(--bg2)}
-  .customer-tab{padding:12px 0;text-align:center;font-size:15px;font-weight:800;color:var(--text2);cursor:pointer}
+  .edit-section{grid-column:1 / -1;font-size:14px;font-weight:700;color:var(--text);border-top:0.5px solid var(--border);padding-top:14px;margin-top:2px}
+  .edit-help{font-size:12px;color:var(--text3);margin-top:5px;line-height:1.5}
+  .customer-tabs{display:grid;grid-template-columns:1fr 1fr;border:0.5px solid var(--border2);border-radius:var(--radius-lg);overflow:hidden;margin-bottom:18px;background:var(--bg2)}
+  .customer-tab{padding:11px 0;text-align:center;font-size:14px;font-weight:600;color:var(--text2);cursor:pointer}
   .customer-tab.on{background:var(--text);color:var(--bg)}
   .customer-panel{display:none}
   .customer-panel.on{display:block}
   .timeline{margin-top:0;border-top:none;padding-top:0}
   .timeline-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px}
-  .timeline-title{font-size:18px;font-weight:800}
-  .timeline-add{border:1px solid var(--border2);background:var(--bg);border-radius:18px;padding:8px 12px;font-size:13px;font-weight:700;color:var(--text);cursor:pointer}
-  .timeline-item{border-bottom:1px solid var(--border)}
-  .timeline-content{padding:13px 0;background:var(--bg)}
+  .timeline-title{font-size:17px;font-weight:600}
+  .timeline-add{border:0.5px solid var(--border2);background:var(--bg2);border-radius:20px;padding:8px 12px;font-size:13px;font-weight:600;color:var(--text);cursor:pointer;font-family:inherit}
+  .timeline-item{border-bottom:0.5px solid var(--border)}
+  .timeline-content{padding:13px 0;background:var(--bg);touch-action:manipulation;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
   .timeline-meta{display:flex;gap:8px;align-items:center;margin-bottom:6px;color:var(--text3);font-size:12px;font-weight:700}
   .timeline-talk{font-size:15px;line-height:1.55;color:var(--text)}
   .timeline-next{font-size:13px;line-height:1.5;color:var(--text2);margin-top:5px}
@@ -705,7 +709,7 @@ function renderCustomerHistory(customerId){
   if(!list.length){el.innerHTML='<div class="timeline-empty">尚無互動紀錄。可以從這裡新增第一筆。</div>';return}
   el.innerHTML=list.map(x=>`
     <div class="timeline-item" data-id="${attr(x.id)}">
-      <div class="timeline-content" onclick="showDetail('${attr(x.id)}')" oncontextmenu="showInteractionSheet(event,'${attr(x.id)}')" onpointerdown="startLongPress(event,'${attr(x.id)}')" onpointerup="clearLongPress()" onpointercancel="clearLongPress()" onpointerleave="clearLongPress()">
+      <div class="timeline-content" onclick="openInteractionFromTimeline(event,'${attr(x.id)}')" oncontextmenu="showInteractionSheet(event,'${attr(x.id)}')" onpointerdown="startLongPress(event,'${attr(x.id)}')" onpointerup="clearLongPress()" onpointercancel="clearLongPress()" onpointerleave="clearLongPress()">
         <div class="timeline-meta"><span>${esc(x.lastContact||x.created||'')}</span>${x.channel?`<span class="ch-badge" style="background:${chColor(x.channel).bg};color:${chColor(x.channel).c}">${esc(x.channel)}</span>`:''}</div>
         <div class="timeline-talk">${esc(x.talked||'尚無聊天內容')}</div>
         ${x.nextTopic?`<div class="timeline-next">下次話題：${esc(x.nextTopic)}</div>`:''}
@@ -716,16 +720,36 @@ function renderCustomerHistory(customerId){
 
 let longPressTimer=null;
 let sheetInteractionId=null;
+let longPressOpened=false;
+function clearTextSelection(){
+  const sel=window.getSelection?.();
+  if(sel&&!sel.isCollapsed)sel.removeAllRanges();
+}
 function startLongPress(e,id){
   clearLongPress();
-  longPressTimer=setTimeout(()=>showInteractionSheet(e,id),550);
+  clearTextSelection();
+  longPressTimer=setTimeout(()=>{
+    longPressOpened=true;
+    clearTextSelection();
+    showInteractionSheet(e,id);
+  },520);
 }
 function clearLongPress(){
   clearTimeout(longPressTimer);
   longPressTimer=null;
 }
+function openInteractionFromTimeline(e,id){
+  if(longPressOpened){
+    e?.preventDefault();
+    e?.stopPropagation();
+    setTimeout(()=>{longPressOpened=false},0);
+    return;
+  }
+  showDetail(id);
+}
 function showInteractionSheet(e,id){
   if(e){e.preventDefault();e.stopPropagation();}
+  clearTextSelection();
   sheetInteractionId=id;
   const item=contacts.find(x=>normId(x.id)===normId(id));
   const title=document.getElementById('sheet-title');
