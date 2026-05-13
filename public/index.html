@@ -181,16 +181,20 @@ async function loadContacts(){
   setSyncDot('loading');
   try{
     const data=await notionAPI('POST',`databases/${dbId}/query`,{page_size:100,sorts:[{timestamp:'created_time',direction:'descending'}]});
-    contacts=(data.results||[]).map(p=>({
-      if(data.results?.[0])console.log(JSON.stringify(data.results[0].properties));
-      id:p.id,
-     name:p.properties?.['客戶']?.title?.map(t=>t.plain_text||'').join('')||'無名稱',
-      channel:p.properties?.['管道']?.select?.name||'',
-      talked:p.properties?.['聊了什麼']?.rich_text?.[0]?.plain_text||'',
-      nextTopic:p.properties?.['下次話題']?.rich_text?.[0]?.plain_text||'',
-      lastContact:p.properties?.['最後聯絡']?.date?.start||p.created_time?.split('T')[0]||today,
-      created:p.created_time?.split('T')[0]||today,
-    }));
+    contacts=(data.results||[]).map(p=>{
+      const props=p.properties||{};
+      const titleKey=Object.keys(props).find(k=>props[k].type==='title');
+      const name=titleKey?(props[titleKey].title||[]).map(t=>t.plain_text||'').join('')||'無名稱':'無名稱';
+      return {
+        id:p.id,
+        name,
+        channel:props['管道']?.select?.name||'',
+        talked:(props['聊了什麼']?.rich_text||[]).map(t=>t.plain_text||'').join('')||'',
+        nextTopic:(props['下次話題']?.rich_text||[]).map(t=>t.plain_text||'').join('')||'',
+        lastContact:props['最後聯絡']?.date?.start||p.created_time?.split('T')[0]||today,
+        created:p.created_time?.split('T')[0]||today,
+      };
+    });
     setSyncDot('ok');
   }catch(e){setSyncDot('err');toast('同步失敗，請確認 Integration 已加入資料庫',true)}
   renderList()
