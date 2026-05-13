@@ -27,6 +27,8 @@
   .fpill.on{background:var(--text);color:var(--bg);border-color:var(--text)}
   .stats-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:12px 16px}
   .stat{background:var(--bg2);border-radius:var(--radius);padding:10px 12px}
+  .stat.clickable{cursor:pointer}
+  .stat.clickable:active{opacity:.75}
   .stat-n{font-size:24px;font-weight:600}
   .stat-l{font-size:12px;color:var(--text2);margin-top:2px}
   .contact-item{display:flex;align-items:center;gap:12px;padding:11px 16px;border-bottom:0.5px solid var(--border);cursor:pointer;transition:background .1s}
@@ -70,6 +72,16 @@
   .toast{position:fixed;bottom:calc(var(--safe-bot) + 24px);left:50%;transform:translateX(-50%) translateY(80px);background:var(--text);color:var(--bg);padding:11px 20px;border-radius:24px;font-size:14px;font-weight:500;transition:transform .3s ease;z-index:99;white-space:nowrap;pointer-events:none}
   .toast.show{transform:translateX(-50%) translateY(0)}
   .toast.err{background:var(--red)}
+  .mini-frame{position:fixed;left:16px;right:16px;bottom:calc(var(--safe-bot) + 18px);max-width:398px;margin:0 auto;background:var(--bg);border:1px solid var(--border2);border-radius:18px;box-shadow:0 12px 38px rgba(0,0,0,.18);z-index:120;display:none;overflow:hidden}
+  .mini-frame.show{display:block}
+  .mini-head{display:flex;align-items:center;justify-content:space-between;padding:13px 15px;border-bottom:1px solid var(--border);font-weight:800}
+  .mini-close{border:none;background:var(--bg2);border-radius:50%;width:30px;height:30px;font-size:18px;color:var(--text2);cursor:pointer}
+  .mini-list{max-height:45vh;overflow:auto}
+  .mini-item{padding:12px 15px;border-bottom:1px solid var(--border)}
+  .mini-item:last-child{border-bottom:none}
+  .mini-name{font-weight:800;font-size:14px}
+  .mini-talk{font-size:13px;color:var(--text2);line-height:1.5;margin-top:4px}
+  .mini-meta{font-size:12px;color:var(--text3);margin-top:4px}
   .spinner{width:20px;height:20px;border:2px solid rgba(255,255,255,0.3);border-top-color:var(--bg);border-radius:50%;animation:spin .7s linear infinite}
   @keyframes spin{to{transform:rotate(360deg)}}
   .sync-dot{width:8px;height:8px;border-radius:50%;background:#ccc;transition:background .3s}
@@ -130,7 +142,10 @@
   .timeline-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px}
   .timeline-title{font-size:18px;font-weight:800}
   .timeline-add{border:1px solid var(--border2);background:var(--bg);border-radius:18px;padding:8px 12px;font-size:13px;font-weight:700;color:var(--text);cursor:pointer}
-  .timeline-item{padding:13px 0;border-bottom:1px solid var(--border)}
+  .timeline-item{position:relative;display:flex;align-items:stretch;border-bottom:1px solid var(--border);overflow:hidden}
+  .timeline-content{flex:1;min-width:0;padding:13px 0;background:var(--bg);transition:transform .18s ease}
+  .timeline-item.reveal .timeline-content{transform:translateX(-76px)}
+  .timeline-delete{width:76px;border:none;background:var(--red);color:#fff;font-size:14px;font-weight:800;cursor:pointer;position:absolute;right:0;top:0;bottom:0}
   .timeline-meta{display:flex;gap:8px;align-items:center;margin-bottom:6px;color:var(--text3);font-size:12px;font-weight:700}
   .timeline-talk{font-size:15px;line-height:1.55;color:var(--text)}
   .timeline-next{font-size:13px;line-height:1.5;color:var(--text2);margin-top:5px}
@@ -144,6 +159,10 @@
 </head>
 <body>
 <div id="toast" class="toast"></div>
+<div id="today-frame" class="mini-frame">
+  <div class="mini-head"><span>今日新增互動</span><button class="mini-close" onclick="hideTodayFrame()">×</button></div>
+  <div class="mini-list" id="today-frame-list"></div>
+</div>
 
 <div id="view-setup" style="display:none">
   <div class="setup-screen">
@@ -188,7 +207,7 @@
   </div>
   <div class="stats-row">
     <div class="stat"><div class="stat-n" id="stat-total">—</div><div class="stat-l">總聯絡人</div></div>
-    <div class="stat"><div class="stat-n" id="stat-today" style="color:#3B6D11">—</div><div class="stat-l">今日新增</div></div>
+    <div class="stat clickable" onclick="showTodayFrame()"><div class="stat-n" id="stat-today" style="color:#3B6D11">—</div><div class="stat-l">今日新增</div></div>
   </div>
   <div id="contacts-list"></div>
   <div class="fab-area">
@@ -221,6 +240,7 @@
         </div>
       </div>
       <div class="field-row"><div class="field-label">管道</div><div class="ch-pills" id="add-ch-pills"></div></div>
+      <div class="field-row"><div class="field-label">互動日期</div><input class="field-input" type="date" id="f-date" /></div>
       <div class="field-row"><div class="field-label">聊了什麼</div><textarea class="field-input" id="f-talked" rows="4" placeholder="今天聊的內容、對方的狀況..."></textarea></div>
       <div class="field-row"><div class="field-label">下次話題</div><textarea class="field-input" id="f-next" rows="2" placeholder="下次見面要聊的事..."></textarea></div>
     </div>
@@ -302,8 +322,15 @@ const AV_COLORS=[{bg:'#E1F5EE',c:'#0F6E56'},{bg:'#EEEDFE',c:'#534AB7'},{bg:'#FAE
 const CH_COLORS={'IG':{bg:'#FAEEDA',c:'#854F0B'},'LINE':{bg:'#EAF3DE',c:'#3B6D11'},'電話':{bg:'#E6F1FB',c:'#185FA5'},'見面':{bg:'#EEEDFE',c:'#534AB7'},'其他':{bg:'#f1f1f1',c:'#888'}};
 let dbId='',contacts=[],customers=[],filterCh='',mode='today',gradeFilter='A',showC=false,editMode=false,currentId=null,currentCustomerId=null;
 let selCustId=null,selCustName='',custTimer=null;
-const today=new Date().toISOString().split('T')[0];
+const today=localDate();
 
+function localDate(d=new Date()){
+  const dt=d instanceof Date?d:new Date(d);
+  const y=dt.getFullYear();
+  const m=String(dt.getMonth()+1).padStart(2,'0');
+  const day=String(dt.getDate()).padStart(2,'0');
+  return `${y}-${m}-${day}`;
+}
 function initials(n){return(n||'??').trim().slice(0,2).toUpperCase()}
 function avColor(n){let h=0;for(let c of(n||''))h=(h*31+c.charCodeAt(0))&0xffff;return AV_COLORS[h%AV_COLORS.length]}
 function chColor(ch){return CH_COLORS[ch]||{bg:'#f1f1f1',c:'#888'}}
@@ -397,7 +424,7 @@ async function loadContacts(){
       const status=multiNames(props['目前進度'])||multiNames(props['商品方向'])||multiNames(props['屬性'])||'';
       return{
         id:p.id,
-        created:p.created_time?.split('T')[0]||'',
+        created:p.created_time?localDate(p.created_time):'',
         name,
         visitPurpose:multiNames(props['③約訪目的']),
         age:formulaText(props['實際年齡']),
@@ -441,9 +468,9 @@ async function loadContacts(){
         channel:props['管道']?.select?.name||'',
         talked:(props['聊了什麼']?.rich_text||[]).map(t=>t.plain_text||'').join('')||'',
         nextTopic:(props['下次話題']?.rich_text||[]).map(t=>t.plain_text||'').join('')||'',
-        lastContact:props['最後聯絡日期']?.date?.start||p.created_time?.split('T')[0]||today,
+        lastContact:props['最後聯絡日期']?.date?.start||(p.created_time?localDate(p.created_time):today),
         createdTime:p.created_time||'',
-        created:p.created_time?.split('T')[0]||today,
+        created:p.created_time?localDate(p.created_time):today,
       };
     });
     setSyncDot('ok');
@@ -510,6 +537,7 @@ function clearCustomer(){
 function resetAddForm(){
   clearCustomer();
   ['f-talked','f-next'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=''});
+  const dateEl=document.getElementById('f-date');if(dateEl)dateEl.value=today;
   renderChPills('add-ch-pills',CHANNELS[0]);
 }
 
@@ -530,7 +558,7 @@ function renderList(){
   });
   const ts=document.getElementById('stat-total');const tt=document.getElementById('stat-today');
   if(ts)ts.textContent=contacts.length;
-  if(tt)tt.textContent=contacts.filter(c=>c.created===today).length;
+  if(tt)tt.textContent=todayInteractions().length;
   const el=document.getElementById('contacts-list');if(!el)return;
   if(!list.length){el.innerHTML='<div class="empty-state">找不到紀錄<br><span style="font-size:13px">點右下角 + 新增</span></div>';return}
   const cc=c=>{const cv=chColor(c.channel);return c.channel?`<span class="ch-badge" style="background:${cv.bg};color:${cv.c}">${esc(c.channel)}</span>`:''};
@@ -554,7 +582,7 @@ function renderToday(){
   const count=groups.A.length+groups.B.length+groups.C.length+groups.D.length;
   const ts=document.getElementById('stat-total');const tt=document.getElementById('stat-today');
   if(ts)ts.textContent=customers.length;
-  if(tt)tt.textContent=customers.filter(c=>c.created===today).length;
+  if(tt)tt.textContent=todayInteractions().length;
   const el=document.getElementById('contacts-list');if(!el)return;
   let html=`<div class="today-card"><div class="today-head"><div class="today-title">今日追蹤</div><div class="today-count">${count} 人</div></div>
     <div class="grade-tabs">
@@ -576,7 +604,7 @@ function renderCustomers(){
   const list=customers.filter(c=>!q||[c.name,c.topic,c.status,c.grade].some(x=>(x||'').toLowerCase().includes(q)));
   const ts=document.getElementById('stat-total');const tt=document.getElementById('stat-today');
   if(ts)ts.textContent=customers.length;
-  if(tt)tt.textContent=customers.filter(c=>c.created===today).length;
+  if(tt)tt.textContent=todayInteractions().length;
   const el=document.getElementById('contacts-list');if(!el)return;
   el.innerHTML='<div class="list-note">客戶列表會顯示全部 A/B/C/D 客戶；點客戶即可在 App 內編輯資料。</div>'+list.map(c=>{
     const av=avColor(c.name);
@@ -586,13 +614,36 @@ function renderCustomers(){
 
 function renderManager(){
   const ts=document.getElementById('stat-total');const tt=document.getElementById('stat-today');
-  if(ts)ts.textContent=contacts.length;if(tt)tt.textContent=contacts.filter(c=>c.created===today).length;
+  if(ts)ts.textContent=contacts.length;if(tt)tt.textContent=todayInteractions().length;
   const el=document.getElementById('contacts-list');if(!el)return;
   const recent=contacts.slice(0,20);
   el.innerHTML='<div class="list-note">主管看板先顯示最近互動紀錄，後續可再接「回報主管」勾選清單與主管回饋欄位。</div>'+recent.map(c=>{
     const av=avColor(c.name);
     return `<div class="contact-item" onclick="showDetail('${attr(c.id)}')"><div class="avatar" style="background:${av.bg};color:${av.c}">${esc(initials(c.name))}</div><div class="contact-info"><div class="contact-name">${esc(c.name)}</div><div class="contact-sub">${esc(c.talked||'尚無紀錄')}</div></div></div>`;
   }).join('');
+}
+
+function todayInteractions(){
+  return contacts.filter(c=>(c.lastContact||c.created)===today);
+}
+
+function showTodayFrame(){
+  const frame=document.getElementById('today-frame');
+  const listEl=document.getElementById('today-frame-list');
+  if(!frame||!listEl)return;
+  const list=todayInteractions();
+  listEl.innerHTML=list.length?list.map(c=>`
+    <div class="mini-item" onclick="hideTodayFrame();showDetail('${attr(c.id)}')">
+      <div class="mini-name">${esc(c.name)}</div>
+      <div class="mini-talk">${esc(c.talked||'尚無聊天內容')}</div>
+      <div class="mini-meta">${esc(c.channel||'未填管道')} · ${esc(c.lastContact||c.created||'')}</div>
+    </div>
+  `).join(''):'<div class="mini-item"><div class="mini-talk">今天還沒有新增互動。</div></div>';
+  frame.classList.add('show');
+}
+
+function hideTodayFrame(){
+  document.getElementById('today-frame')?.classList.remove('show');
 }
 
 function openCustomerEdit(id){
@@ -638,12 +689,46 @@ function renderCustomerHistory(customerId){
     .sort((a,b)=>(b.createdTime||b.created||'').localeCompare(a.createdTime||a.created||''));
   if(!list.length){el.innerHTML='<div class="timeline-empty">尚無互動紀錄。可以從這裡新增第一筆。</div>';return}
   el.innerHTML=list.map(x=>`
-    <div class="timeline-item" onclick="showDetail('${attr(x.id)}')">
-      <div class="timeline-meta"><span>${esc(x.lastContact||x.created||'')}</span>${x.channel?`<span class="ch-badge" style="background:${chColor(x.channel).bg};color:${chColor(x.channel).c}">${esc(x.channel)}</span>`:''}</div>
-      <div class="timeline-talk">${esc(x.talked||'尚無聊天內容')}</div>
-      ${x.nextTopic?`<div class="timeline-next">下次話題：${esc(x.nextTopic)}</div>`:''}
+    <div class="timeline-item" data-id="${attr(x.id)}">
+      <button class="timeline-delete" onclick="deleteInteraction(event,'${attr(x.id)}')">刪除</button>
+      <div class="timeline-content" onclick="showDetail('${attr(x.id)}')" oncontextmenu="revealDelete(event,this)" onpointerdown="startLongPress(event,this)" onpointerup="clearLongPress()" onpointercancel="clearLongPress()" onpointerleave="clearLongPress()">
+        <div class="timeline-meta"><span>${esc(x.lastContact||x.created||'')}</span>${x.channel?`<span class="ch-badge" style="background:${chColor(x.channel).bg};color:${chColor(x.channel).c}">${esc(x.channel)}</span>`:''}</div>
+        <div class="timeline-talk">${esc(x.talked||'尚無聊天內容')}</div>
+        ${x.nextTopic?`<div class="timeline-next">下次話題：${esc(x.nextTopic)}</div>`:''}
+      </div>
     </div>
   `).join('');
+}
+
+let longPressTimer=null;
+function startLongPress(e,el){
+  clearLongPress();
+  longPressTimer=setTimeout(()=>revealDelete(e,el),550);
+}
+function clearLongPress(){
+  clearTimeout(longPressTimer);
+  longPressTimer=null;
+}
+function revealDelete(e,el){
+  if(e){e.preventDefault();e.stopPropagation();}
+  document.querySelectorAll('.timeline-item.reveal').forEach(x=>x.classList.remove('reveal'));
+  el.closest('.timeline-item')?.classList.add('reveal');
+}
+
+async function deleteInteraction(e,id){
+  if(e){e.preventDefault();e.stopPropagation();}
+  const item=contacts.find(x=>normId(x.id)===normId(id));
+  if(!item)return;
+  if(!confirm(`刪除這筆互動？\n${item.name}：${item.talked||'尚無內容'}`))return;
+  try{
+    await notionAPI('PATCH',`pages/${id}`,{archived:true});
+    contacts=contacts.filter(x=>normId(x.id)!==normId(id));
+    toast('已刪除互動');
+    renderCustomerHistory(currentCustomerId);
+    const tt=document.getElementById('stat-today');if(tt)tt.textContent=todayInteractions().length;
+  }catch(err){
+    toast('刪除失敗：'+err.message,true);
+  }
 }
 
 function startInteractionForCustomer(){
@@ -802,7 +887,8 @@ async function submitContact(){
       });
       custId=newCust.id;
     }
-    const data={customerId:custId,name:selCustName,channel:document.getElementById('add-ch-pills')?._get()||'',talked:document.getElementById('f-talked').value.trim(),nextTopic:document.getElementById('f-next').value.trim(),lastContact:today,created:today};
+    const interactionDate=document.getElementById('f-date')?.value||today;
+    const data={customerId:custId,name:selCustName,channel:document.getElementById('add-ch-pills')?._get()||'',talked:document.getElementById('f-talked').value.trim(),nextTopic:document.getElementById('f-next').value.trim(),lastContact:interactionDate,created:today,createdTime:new Date().toISOString()};
     const res=await notionAPI('POST','pages',{parent:{database_id:dbId},properties:buildProps(data)});
     data.id=res.id;contacts.unshift(data);
     toast('已新增並同步！');showView('list');
