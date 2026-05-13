@@ -86,6 +86,29 @@
   .cust-selected-name{font-size:14px;font-weight:500;flex:1}
   .cust-clear{background:none;border:none;color:var(--text3);cursor:pointer;font-size:18px;line-height:1;padding:0 2px}
   .cust-hint{font-size:12px;color:var(--text3);margin-top:5px}
+  .main-tabs{display:flex;gap:8px;padding:12px 16px;overflow-x:auto;scrollbar-width:none;border-bottom:0.5px solid var(--border)}
+  .main-tabs::-webkit-scrollbar{display:none}
+  .main-tab{padding:8px 15px;border-radius:22px;font-size:14px;font-weight:600;border:0.5px solid var(--border2);background:var(--bg);color:var(--text2);white-space:nowrap;cursor:pointer}
+  .main-tab.on{background:var(--text);color:var(--bg);border-color:var(--text)}
+  .today-card{margin:14px 16px 90px;border:0.5px solid var(--border);border-radius:18px;overflow:hidden;background:var(--bg)}
+  .today-head{display:flex;align-items:center;justify-content:space-between;padding:15px 16px;border-bottom:0.5px solid var(--border)}
+  .today-title{font-size:20px;font-weight:700}
+  .today-count{font-size:14px;color:var(--text2);font-weight:600}
+  .grade-tabs{display:grid;grid-template-columns:repeat(4,1fr);border-bottom:0.5px solid var(--border)}
+  .grade-tab{padding:11px 0;text-align:center;font-size:14px;font-weight:600;color:var(--text2);cursor:pointer}
+  .grade-tab.on{color:var(--text);box-shadow:inset 0 -2px 0 var(--text)}
+  .grade-section-label{padding:10px 16px 5px;font-size:13px;font-weight:700;color:#7a3f05;background:linear-gradient(90deg,rgba(250,238,218,.45),transparent)}
+  .grade-section-label.hot{color:#a92c2c;background:linear-gradient(90deg,rgba(250,236,231,.55),transparent)}
+  .track-row{display:flex;align-items:center;gap:12px;padding:13px 16px;border-bottom:0.5px solid var(--border);cursor:pointer}
+  .track-row:active{background:var(--bg2)}
+  .track-main{flex:1;min-width:0}
+  .track-name{font-size:16px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .track-sub{font-size:13px;color:var(--text2);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .due-badge{font-size:12px;font-weight:700;border-radius:14px;padding:4px 9px;white-space:nowrap;background:#FAEEDA;color:#7a3f05}
+  .due-badge.hot{background:#FAECE7;color:#a92c2c}
+  .due-badge.ok{background:#EAF3DE;color:#3B6D11}
+  .fold-row{display:flex;align-items:center;justify-content:space-between;padding:13px 16px;background:var(--bg2);border-bottom:0.5px solid var(--border);font-size:15px;font-weight:700;color:var(--text2);cursor:pointer}
+  .list-note{padding:12px 16px;color:var(--text2);font-size:13px;line-height:1.6;background:var(--bg2);border-bottom:0.5px solid var(--border)}
 </style>
 </head>
 <body>
@@ -115,11 +138,17 @@
       <button class="btn-icon outline" onclick="loadContacts()" aria-label="重新整理" style="font-size:15px">↻</button>
     </div>
   </div>
-  <div class="search-wrap">
+  <div class="main-tabs" id="main-tabs">
+    <div class="main-tab on" onclick="setMode('today',this)">今日追蹤</div>
+    <div class="main-tab" onclick="setMode('customers',this)">客戶列表</div>
+    <div class="main-tab" onclick="setMode('quick',this)">快速記錄</div>
+    <div class="main-tab" onclick="setMode('manager',this)">主管看板</div>
+  </div>
+  <div class="search-wrap" id="search-wrap">
     <span class="search-icon">⌕</span>
     <input type="search" id="search-input" placeholder="搜尋客戶名稱、互動內容..." oninput="renderList()" />
   </div>
-  <div class="filter-row">
+  <div class="filter-row" id="channel-filters">
     <div class="fpill on" onclick="setFilter(this,'')">全部</div>
     <div class="fpill" onclick="setFilter(this,'IG')">IG</div>
     <div class="fpill" onclick="setFilter(this,'LINE')">LINE</div>
@@ -187,7 +216,7 @@ const CUSTOMER_DB='342b637dc33580698559d12ce28a67d1';
 const CHANNELS=['IG','LINE','電話','見面','其他'];
 const AV_COLORS=[{bg:'#E1F5EE',c:'#0F6E56'},{bg:'#EEEDFE',c:'#534AB7'},{bg:'#FAECE7',c:'#993C1D'},{bg:'#FAEEDA',c:'#854F0B'},{bg:'#E6F1FB',c:'#185FA5'}];
 const CH_COLORS={'IG':{bg:'#FAEEDA',c:'#854F0B'},'LINE':{bg:'#EAF3DE',c:'#3B6D11'},'電話':{bg:'#E6F1FB',c:'#185FA5'},'見面':{bg:'#EEEDFE',c:'#534AB7'},'其他':{bg:'#f1f1f1',c:'#888'}};
-let dbId='',contacts=[],filterCh='',editMode=false,currentId=null;
+let dbId='',contacts=[],customers=[],filterCh='',mode='today',gradeFilter='all',showC=false,editMode=false,currentId=null;
 let selCustId=null,selCustName='',custTimer=null;
 const today=new Date().toISOString().split('T')[0];
 
@@ -203,12 +232,57 @@ function pageTitle(p){
   const titleKey=Object.keys(props).find(k=>props[k].type==='title');
   return titleKey?(props[titleKey].title||[]).map(t=>t.plain_text||'').join('').trim():'';
 }
+function richText(prop){return (prop?.rich_text||[]).map(t=>t.plain_text||'').join('').trim()}
+function selectName(prop){return prop?.select?.name||''}
+function multiNames(prop){return (prop?.multi_select||[]).map(x=>x.name).join('、')}
+function formulaText(prop){
+  const f=prop?.formula;if(!f)return '';
+  if(f.type==='string')return f.string||'';
+  if(f.type==='date')return f.date?.start||'';
+  if(f.type==='number')return String(f.number??'');
+  if(f.type==='boolean')return f.boolean?'是':'';
+  return '';
+}
+function daysBetween(dateStr){
+  if(!dateStr)return null;
+  const a=new Date(today+'T00:00:00');
+  const b=new Date(dateStr.slice(0,10)+'T00:00:00');
+  if(Number.isNaN(b.getTime()))return null;
+  return Math.round((b-a)/86400000);
+}
+function dueLabel(c){
+  const raw=(c.reminder||c.overdue||'').trim();
+  const diff=daysBetween(raw);
+  if(diff!==null){
+    if(diff<0)return {text:`逾期${Math.abs(diff)}天`,tone:'hot'};
+    if(diff===0)return {text:'今天',tone:''};
+    if(diff===1)return {text:'明天',tone:'ok'};
+    return {text:`${diff}天後`,tone:'ok'};
+  }
+  if(/逾期/.test(raw))return {text:raw.replace('提醒','').trim()||'逾期',tone:'hot'};
+  if(/TODAY|今天|提醒/.test(raw))return {text:'今天',tone:''};
+  return {text:'追蹤',tone:''};
+}
+function gradeKey(g){
+  if(/^A/.test(g))return 'A';
+  if(/^B/.test(g))return 'B';
+  if(/^C/.test(g))return 'C';
+  if(/^D/.test(g))return 'D';
+  return 'C';
+}
 function openCustomerPage(e,id){
   if(e)e.stopPropagation();
   if(!id){toast('這筆互動還沒有連到客戶頁',true);return}
   window.open(notionPageUrl(id),'_blank','noopener');
 }
 function showView(v){['setup','list','detail','add'].forEach(x=>document.getElementById('view-'+x).style.display='none');document.getElementById('view-'+v).style.display='block';if(v==='list')renderList();if(v==='add')resetAddForm()}
+function setMode(next,el){
+  if(next==='quick'){showView('add');return}
+  mode=next;
+  document.querySelectorAll('.main-tab').forEach(t=>t.classList.remove('on'));
+  if(el)el.classList.add('on');
+  showView('list');
+}
 function toast(msg,isErr){const t=document.getElementById('toast');t.textContent=msg;t.className='toast show'+(isErr?' err':'');clearTimeout(t._tid);t._tid=setTimeout(()=>t.className='toast',2500)}
 function setSyncDot(s){const d=document.getElementById('sync-dot');if(d)d.className='sync-dot '+(s==='ok'?'ok':s==='loading'?'loading':'err')}
 async function notionAPI(method,path,body){
@@ -227,6 +301,23 @@ async function loadContacts(){
       notionAPI('POST',`databases/${CUSTOMER_DB}/query`,{page_size:100})
     ]);
     const customerNames={};
+    customers=(customerData.results||[]).map(p=>{
+      const props=p.properties||{};
+      const name=pageTitle(p)||'未命名';
+      const grade=selectName(props['分級'])||'C級';
+      const topic=richText(props['下次見面主題'])||richText(props['預計談什麼'])||multiNames(props['議題'])||'尚未設定追蹤主題';
+      const status=multiNames(props['目前進度'])||multiNames(props['商品方向'])||multiNames(props['屬性'])||'';
+      return{
+        id:p.id,
+        name,
+        grade,
+        gradeKey:gradeKey(grade),
+        topic,
+        status,
+        reminder:formulaText(props['建議下次聯絡日'])||formulaText(props['預計約訪日'])||formulaText(props['定聯提醒']),
+        overdue:formulaText(props['逾期']),
+      };
+    });
     (customerData.results||[]).forEach(p=>{
       const name=pageTitle(p);
       if(name) customerNames[normId(p.id)]=name;
@@ -318,6 +409,13 @@ function resetAddForm(){
 function setFilter(el,v){document.querySelectorAll('.fpill').forEach(p=>p.classList.remove('on'));el.classList.add('on');filterCh=v;renderList()}
 
 function renderList(){
+  const searchWrap=document.getElementById('search-wrap');
+  const channelFilters=document.getElementById('channel-filters');
+  if(searchWrap)searchWrap.style.display=mode==='today'||mode==='customers'?'block':'none';
+  if(channelFilters)channelFilters.style.display=mode==='interactions'?'flex':'none';
+  if(mode==='today'){renderToday();return}
+  if(mode==='customers'){renderCustomers();return}
+  if(mode==='manager'){renderManager();return}
   const q=(document.getElementById('search-input')?.value||'').toLowerCase();
   const list=contacts.filter(c=>{
     const mq=!q||[c.name,c.talked,c.nextTopic].some(x=>(x||'').toLowerCase().includes(q));
@@ -330,6 +428,74 @@ function renderList(){
   if(!list.length){el.innerHTML='<div class="empty-state">找不到紀錄<br><span style="font-size:13px">點右下角 + 新增</span></div>';return}
   const cc=c=>{const cv=chColor(c.channel);return c.channel?`<span class="ch-badge" style="background:${cv.bg};color:${cv.c}">${esc(c.channel)}</span>`:''};
   el.innerHTML=list.map(c=>{const av=avColor(c.name);return`<div class="contact-item" onclick="showDetail('${attr(c.id)}')"><div class="avatar" title="開啟客戶資訊頁" onclick="openCustomerPage(event,'${attr(c.customerId)}')" style="background:${av.bg};color:${av.c}">${esc(initials(c.name))}</div><div class="contact-info"><div class="contact-name">${esc(c.name)}</div><div class="contact-sub">${esc(c.talked||'尚無紀錄')}</div></div>${cc(c)}</div>`}).join('')
+}
+
+function renderTrackRow(c){
+  const av=avColor(c.name);const due=dueLabel(c);
+  const sub=[c.topic,c.status].filter(Boolean).join(' · ');
+  return `<div class="track-row" onclick="openCustomerPage(event,'${attr(c.id)}')">
+    <div class="avatar" style="background:${av.bg};color:${av.c}">${esc(initials(c.name))}</div>
+    <div class="track-main"><div class="track-name">${esc(c.name)}</div><div class="track-sub">${esc(sub)}</div></div>
+    <span class="due-badge ${due.tone}">${esc(due.text)}</span>
+  </div>`;
+}
+
+function renderToday(){
+  const q=(document.getElementById('search-input')?.value||'').toLowerCase();
+  const active=customers.filter(c=>c.gradeKey!=='D'&&(!q||[c.name,c.topic,c.status].some(x=>(x||'').toLowerCase().includes(q))));
+  const groups={A:[],B:[],C:[]};active.forEach(c=>groups[c.gradeKey]?.push(c));
+  const count=groups.A.length+groups.B.length+groups.C.length;
+  const ts=document.getElementById('stat-total');const tt=document.getElementById('stat-today');
+  if(ts)ts.textContent=customers.length;
+  if(tt)tt.textContent=count;
+  const el=document.getElementById('contacts-list');if(!el)return;
+  const filtered=gradeFilter==='all'?['A','B','C']:[gradeFilter];
+  let html=`<div class="today-card"><div class="today-head"><div class="today-title">今日追蹤</div><div class="today-count">${count} 人</div></div>
+    <div class="grade-tabs">
+      <div class="grade-tab ${gradeFilter==='all'?'on':''}" onclick="gradeFilter='all';renderToday()">全部</div>
+      <div class="grade-tab ${gradeFilter==='A'?'on':''}" onclick="gradeFilter='A';renderToday()">A 熱</div>
+      <div class="grade-tab ${gradeFilter==='B'?'on':''}" onclick="gradeFilter='B';renderToday()">B 暖</div>
+      <div class="grade-tab ${gradeFilter==='C'?'on':''}" onclick="gradeFilter='C';showC=true;renderToday()">C 維護</div>
+    </div>`;
+  if(filtered.includes('A')&&groups.A.length){
+    html+=`<div class="grade-section-label hot">A 級 · ${groups.A.length} 人</div>${groups.A.map(renderTrackRow).join('')}`;
+  }
+  if(filtered.includes('B')&&groups.B.length){
+    html+=`<div class="grade-section-label">B 級 · ${groups.B.length} 人</div>${groups.B.map(renderTrackRow).join('')}`;
+  }
+  if(filtered.includes('C')){
+    if(showC||gradeFilter==='C'){
+      html+=`<div class="fold-row" onclick="showC=false;gradeFilter='all';renderToday()"><span>C 級維護名單 · ${groups.C.length} 人</span><span>⌃</span></div>${groups.C.map(renderTrackRow).join('')}`;
+    }else{
+      html+=`<div class="fold-row" onclick="showC=true;renderToday()"><span>C 級維護名單 · ${groups.C.length} 人（點展開）</span><span>›</span></div>`;
+    }
+  }
+  html+=`<div class="fold-row" style="justify-content:center;color:var(--text3)">D 級不顯示（${customers.filter(c=>c.gradeKey==='D').length} 人存檔中）</div></div>`;
+  el.innerHTML=html;
+}
+
+function renderCustomers(){
+  const q=(document.getElementById('search-input')?.value||'').toLowerCase();
+  const list=customers.filter(c=>!q||[c.name,c.topic,c.status,c.grade].some(x=>(x||'').toLowerCase().includes(q)));
+  const ts=document.getElementById('stat-total');const tt=document.getElementById('stat-today');
+  if(ts)ts.textContent=customers.length;
+  if(tt)tt.textContent=contacts.filter(c=>c.created===today).length;
+  const el=document.getElementById('contacts-list');if(!el)return;
+  el.innerHTML='<div class="list-note">客戶列表會顯示全部 A/B/C/D 客戶；點頭像或列項可開啟 Notion 客戶頁。</div>'+list.map(c=>{
+    const av=avColor(c.name);
+    return `<div class="contact-item" onclick="openCustomerPage(event,'${attr(c.id)}')"><div class="avatar" style="background:${av.bg};color:${av.c}">${esc(initials(c.name))}</div><div class="contact-info"><div class="contact-name">${esc(c.name)}</div><div class="contact-sub">${esc([c.grade,c.topic].filter(Boolean).join(' · '))}</div></div><span class="ch-badge" style="background:#f1f1f1;color:#555">${esc(c.grade)}</span></div>`;
+  }).join('');
+}
+
+function renderManager(){
+  const ts=document.getElementById('stat-total');const tt=document.getElementById('stat-today');
+  if(ts)ts.textContent=contacts.length;if(tt)tt.textContent=contacts.filter(c=>c.created===today).length;
+  const el=document.getElementById('contacts-list');if(!el)return;
+  const recent=contacts.slice(0,20);
+  el.innerHTML='<div class="list-note">主管看板先顯示最近互動紀錄，後續可再接「回報主管」勾選清單與主管回饋欄位。</div>'+recent.map(c=>{
+    const av=avColor(c.name);
+    return `<div class="contact-item" onclick="showDetail('${attr(c.id)}')"><div class="avatar" style="background:${av.bg};color:${av.c}">${esc(initials(c.name))}</div><div class="contact-info"><div class="contact-name">${esc(c.name)}</div><div class="contact-sub">${esc(c.talked||'尚無紀錄')}</div></div></div>`;
+  }).join('');
 }
 
 function renderChPills(id,cur){
