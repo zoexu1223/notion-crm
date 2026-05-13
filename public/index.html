@@ -174,12 +174,12 @@
   <div class="mini-list" id="today-frame-list"></div>
 </div>
 <div id="interaction-sheet" class="action-sheet">
-  <div class="sheet-backdrop" onclick="hideInteractionSheet()"></div>
+  <div class="sheet-backdrop" onclick="hideActionSheet()"></div>
   <div class="sheet-panel">
-    <div class="sheet-title" id="sheet-title">互動操作</div>
-    <button class="sheet-btn" onclick="openSheetInteraction()">查看互動</button>
-    <button class="sheet-btn danger" onclick="deleteSheetInteraction()">刪除互動</button>
-    <button class="sheet-btn cancel" onclick="hideInteractionSheet()">取消</button>
+    <div class="sheet-title" id="sheet-title">操作</div>
+    <button class="sheet-btn" id="sheet-open-btn" onclick="openSheetTarget()">查看</button>
+    <button class="sheet-btn danger" id="sheet-delete-btn" onclick="deleteSheetTarget()">刪除</button>
+    <button class="sheet-btn cancel" onclick="hideActionSheet()">取消</button>
   </div>
 </div>
 
@@ -627,7 +627,7 @@ function renderCustomers(){
   const el=document.getElementById('contacts-list');if(!el)return;
   el.innerHTML='<div class="list-note">客戶列表會顯示全部 A/B/C/D 客戶；點客戶即可在 App 內編輯資料。</div>'+list.map(c=>{
     const av=avColor(c.name);
-    return `<div class="contact-item" onclick="openCustomerEdit('${attr(c.id)}')"><div class="avatar" style="background:${av.bg};color:${av.c}">${esc(initials(c.name))}</div><div class="contact-info"><div class="contact-name">${esc(c.name)}</div><div class="contact-sub">${esc([c.grade,c.topic].filter(Boolean).join(' · '))}</div></div><span class="ch-badge" style="background:#f1f1f1;color:#555">${esc(c.grade)}</span></div>`;
+    return `<div class="contact-item" onclick="openCustomerFromList(event,'${attr(c.id)}')" oncontextmenu="showCustomerSheet(event,'${attr(c.id)}')" onpointerdown="startCustomerLongPress(event,'${attr(c.id)}')" onpointerup="clearLongPress()" onpointercancel="clearLongPress()" onpointerleave="clearLongPress()"><div class="avatar" style="background:${av.bg};color:${av.c}">${esc(initials(c.name))}</div><div class="contact-info"><div class="contact-name">${esc(c.name)}</div><div class="contact-sub">${esc([c.grade,c.topic].filter(Boolean).join(' · '))}</div></div><span class="ch-badge" style="background:#f1f1f1;color:#555">${esc(c.grade)}</span></div>`;
   }).join('');
 }
 
@@ -720,6 +720,8 @@ function renderCustomerHistory(customerId){
 
 let longPressTimer=null;
 let sheetInteractionId=null;
+let sheetCustomerId=null;
+let sheetMode='interaction';
 let longPressOpened=false;
 function clearTextSelection(){
   const sel=window.getSelection?.();
@@ -732,6 +734,15 @@ function startLongPress(e,id){
     longPressOpened=true;
     clearTextSelection();
     showInteractionSheet(e,id);
+  },520);
+}
+function startCustomerLongPress(e,id){
+  clearLongPress();
+  clearTextSelection();
+  longPressTimer=setTimeout(()=>{
+    longPressOpened=true;
+    clearTextSelection();
+    showCustomerSheet(e,id);
   },520);
 }
 function clearLongPress(){
@@ -747,29 +758,69 @@ function openInteractionFromTimeline(e,id){
   }
   showDetail(id);
 }
+function openCustomerFromList(e,id){
+  if(longPressOpened){
+    e?.preventDefault();
+    e?.stopPropagation();
+    setTimeout(()=>{longPressOpened=false},0);
+    return;
+  }
+  openCustomerEdit(id);
+}
 function showInteractionSheet(e,id){
   if(e){e.preventDefault();e.stopPropagation();}
   clearTextSelection();
+  sheetMode='interaction';
   sheetInteractionId=id;
+  sheetCustomerId=null;
   const item=contacts.find(x=>normId(x.id)===normId(id));
   const title=document.getElementById('sheet-title');
   if(title)title.textContent=item?`${item.name} · ${item.lastContact||item.created||''}`:'互動操作';
+  const openBtn=document.getElementById('sheet-open-btn');
+  const deleteBtn=document.getElementById('sheet-delete-btn');
+  if(openBtn)openBtn.textContent='查看互動';
+  if(deleteBtn)deleteBtn.textContent='刪除互動';
   document.getElementById('interaction-sheet')?.classList.add('show');
 }
-function hideInteractionSheet(){
+function showCustomerSheet(e,id){
+  if(e){e.preventDefault();e.stopPropagation();}
+  clearTextSelection();
+  sheetMode='customer';
+  sheetCustomerId=id;
+  sheetInteractionId=null;
+  const item=customers.find(x=>normId(x.id)===normId(id));
+  const title=document.getElementById('sheet-title');
+  if(title)title.textContent=item?`${item.name} · ${item.grade||'未分級'}`:'客戶操作';
+  const openBtn=document.getElementById('sheet-open-btn');
+  const deleteBtn=document.getElementById('sheet-delete-btn');
+  if(openBtn)openBtn.textContent='查看客戶';
+  if(deleteBtn)deleteBtn.textContent='刪除客戶';
+  document.getElementById('interaction-sheet')?.classList.add('show');
+}
+function hideActionSheet(){
   document.getElementById('interaction-sheet')?.classList.remove('show');
   sheetInteractionId=null;
+  sheetCustomerId=null;
 }
-function openSheetInteraction(){
-  const id=sheetInteractionId;
-  hideInteractionSheet();
-  if(id)showDetail(id);
+function hideInteractionSheet(){hideActionSheet()}
+function openSheetTarget(){
+  const interactionId=sheetInteractionId;
+  const customerId=sheetCustomerId;
+  const modeNow=sheetMode;
+  hideActionSheet();
+  if(modeNow==='customer'&&customerId)openCustomerEdit(customerId);
+  if(modeNow==='interaction'&&interactionId)showDetail(interactionId);
 }
-function deleteSheetInteraction(){
-  const id=sheetInteractionId;
-  hideInteractionSheet();
-  if(id)deleteInteraction(null,id);
+function deleteSheetTarget(){
+  const interactionId=sheetInteractionId;
+  const customerId=sheetCustomerId;
+  const modeNow=sheetMode;
+  hideActionSheet();
+  if(modeNow==='customer'&&customerId)deleteCustomer(null,customerId);
+  if(modeNow==='interaction'&&interactionId)deleteInteraction(null,interactionId);
 }
+function openSheetInteraction(){openSheetTarget()}
+function deleteSheetInteraction(){deleteSheetTarget()}
 
 async function deleteInteraction(e,id){
   if(e){e.preventDefault();e.stopPropagation();}
@@ -782,6 +833,25 @@ async function deleteInteraction(e,id){
     toast('已刪除互動');
     renderCustomerHistory(currentCustomerId);
     const tt=document.getElementById('stat-today');if(tt)tt.textContent=todayInteractions().length;
+  }catch(err){
+    toast('刪除失敗：'+err.message,true);
+  }
+}
+
+async function deleteCustomer(e,id){
+  if(e){e.preventDefault();e.stopPropagation();}
+  const item=customers.find(x=>normId(x.id)===normId(id));
+  if(!item)return;
+  const related=contacts.filter(x=>normId(x.customerId)===normId(id)).length;
+  const note=related?`\n這位客戶目前有 ${related} 筆互動紀錄，Notion 互動紀錄不會一起刪除。`:'';
+  if(!confirm(`刪除這位客戶？\n${item.name}${note}`))return;
+  try{
+    await notionAPI('PATCH',`pages/${id}`,{archived:true});
+    customers=customers.filter(x=>normId(x.id)!==normId(id));
+    contacts=contacts.filter(x=>normId(x.customerId)!==normId(id));
+    toast('已刪除客戶');
+    if(currentCustomerId&&normId(currentCustomerId)===normId(id))showView('list');
+    else renderList();
   }catch(err){
     toast('刪除失敗：'+err.message,true);
   }
