@@ -205,7 +205,12 @@ function openCustomerPage(e,id){
 function showView(v){['setup','list','detail','add'].forEach(x=>document.getElementById('view-'+x).style.display='none');document.getElementById('view-'+v).style.display='block';if(v==='list')renderList();if(v==='add')resetAddForm()}
 function toast(msg,isErr){const t=document.getElementById('toast');t.textContent=msg;t.className='toast show'+(isErr?' err':'');clearTimeout(t._tid);t._tid=setTimeout(()=>t.className='toast',2500)}
 function setSyncDot(s){const d=document.getElementById('sync-dot');if(d)d.className='sync-dot '+(s==='ok'?'ok':s==='loading'?'loading':'err')}
-async function notionAPI(method,path,body){const res=await fetch('/api/notion/'+path,{method,headers:{'Content-Type':'application/json'},body:body?JSON.stringify(body):undefined});if(!res.ok)throw new Error('API '+res.status);return res.json()}
+async function notionAPI(method,path,body){
+  const res=await fetch('/api/notion/'+path,{method,headers:{'Content-Type':'application/json'},body:body?JSON.stringify(body):undefined});
+  const data=await res.json().catch(()=>({}));
+  if(!res.ok)throw new Error(data.message||data.error||('API '+res.status));
+  return data;
+}
 function doConnect(){const db=document.getElementById('cfg-db').value.trim().replace(/-/g,'');if(!db||db.length<32){toast('請填入正確的 Database ID',true);return}dbId=db;localStorage.setItem(DB_KEY,dbId);showView('list');loadContacts()}
 
 async function loadContacts(){
@@ -224,7 +229,7 @@ async function loadContacts(){
         channel:props['管道']?.select?.name||'',
         talked:(props['聊了什麼']?.rich_text||[]).map(t=>t.plain_text||'').join('')||'',
         nextTopic:(props['下次話題']?.rich_text||[]).map(t=>t.plain_text||'').join('')||'',
-        lastContact:props['最後聯絡']?.date?.start||p.created_time?.split('T')[0]||today,
+        lastContact:props['最後聯絡日期']?.date?.start||p.created_time?.split('T')[0]||today,
         created:p.created_time?.split('T')[0]||today,
       };
     });
@@ -374,11 +379,12 @@ async function submitLog(id){
 
 function buildProps(d){
   const p={};
+  if(d.title||d.name)p['標題']={title:[{text:{content:d.title||d.name}}]};
   if(d.customerId)p['客戶']={relation:[{id:d.customerId}]};
   if(d.channel)p['管道']={select:{name:d.channel}};
   if(d.talked!==undefined)p['聊了什麼']={rich_text:[{text:{content:d.talked||''}}]};
   if(d.nextTopic!==undefined)p['下次話題']={rich_text:[{text:{content:d.nextTopic||''}}]};
-  if(d.lastContact)p['最後聯絡']={date:{start:d.lastContact}};
+  if(d.lastContact)p['最後聯絡日期']={date:{start:d.lastContact}};
   return p;
 }
 
