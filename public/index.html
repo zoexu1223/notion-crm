@@ -184,7 +184,7 @@ async function loadContacts(){
     contacts=(data.results||[]).map(p=>({
       if(data.results?.[0])console.log(JSON.stringify(data.results[0].properties));
       id:p.id,
-      name:p.properties?.['客戶']?.title?.[0]?.plain_text||p.properties?.['客戶']?.title?.[0]?.text?.content||'無名稱',
+     name:p.properties?.['客戶']?.title?.map(t=>t.plain_text||'').join('')||'無名稱',
       channel:p.properties?.['管道']?.select?.name||'',
       talked:p.properties?.['聊了什麼']?.rich_text?.[0]?.plain_text||'',
       nextTopic:p.properties?.['下次話題']?.rich_text?.[0]?.plain_text||'',
