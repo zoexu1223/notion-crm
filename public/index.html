@@ -197,6 +197,12 @@ function chColor(ch){return CH_COLORS[ch]||{bg:'#f1f1f1',c:'#888'}}
 function esc(v){return String(v??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]))}
 function attr(v){return esc(v).replace(/`/g,'&#96;')}
 function notionPageUrl(id){return 'https://www.notion.so/'+String(id||'').replace(/-/g,'')}
+function normId(id){return String(id||'').replace(/-/g,'')}
+function pageTitle(p){
+  const props=p.properties||{};
+  const titleKey=Object.keys(props).find(k=>props[k].type==='title');
+  return titleKey?(props[titleKey].title||[]).map(t=>t.plain_text||'').join('').trim():'';
+}
 function openCustomerPage(e,id){
   if(e)e.stopPropagation();
   if(!id){toast('這筆互動還沒有連到客戶頁',true);return}
@@ -216,16 +222,25 @@ function doConnect(){const db=document.getElementById('cfg-db').value.trim().rep
 async function loadContacts(){
   setSyncDot('loading');
   try{
-    const data=await notionAPI('POST',`databases/${dbId}/query`,{page_size:100,sorts:[{timestamp:'created_time',direction:'descending'}]});
+    const [data, customerData]=await Promise.all([
+      notionAPI('POST',`databases/${dbId}/query`,{page_size:100,sorts:[{timestamp:'created_time',direction:'descending'}]}),
+      notionAPI('POST',`databases/${CUSTOMER_DB}/query`,{page_size:100})
+    ]);
+    const customerNames={};
+    (customerData.results||[]).forEach(p=>{
+      const name=pageTitle(p);
+      if(name) customerNames[normId(p.id)]=name;
+    });
     contacts=(data.results||[]).map(p=>{
       const props=p.properties||{};
-      const titleKey=Object.keys(props).find(k=>props[k].type==='title');
-      const name=titleKey?(props[titleKey].title||[]).map(t=>t.plain_text||'').join(''):'';
       const custRel=props['客戶']?.relation||[];
+      const customerId=custRel[0]?.id||'';
+      const title=pageTitle(p);
+      const customerName=customerNames[normId(customerId)]||'';
       return{
         id:p.id,
-        name:name||'未命名',
-        customerId:custRel[0]?.id||'',
+        name:customerName||title||'未命名',
+        customerId,
         channel:props['管道']?.select?.name||'',
         talked:(props['聊了什麼']?.rich_text||[]).map(t=>t.plain_text||'').join('')||'',
         nextTopic:(props['下次話題']?.rich_text||[]).map(t=>t.plain_text||'').join('')||'',
