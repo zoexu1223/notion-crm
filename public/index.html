@@ -121,7 +121,12 @@
   .edit-actions .btn-secondary,.edit-actions .btn-primary{width:auto;margin:0;flex:1}
   .edit-section{grid-column:1 / -1;font-size:14px;font-weight:800;color:#111827;border-top:1px solid var(--border);padding-top:14px;margin-top:2px}
   .edit-help{font-size:12px;color:#94a3b8;margin-top:6px;line-height:1.5}
-  .timeline{margin-top:26px;border-top:1px solid var(--border);padding-top:18px}
+  .customer-tabs{display:grid;grid-template-columns:1fr 1fr;border:1px solid var(--border);border-radius:14px;overflow:hidden;margin-bottom:18px;background:var(--bg2)}
+  .customer-tab{padding:12px 0;text-align:center;font-size:15px;font-weight:800;color:var(--text2);cursor:pointer}
+  .customer-tab.on{background:var(--text);color:var(--bg)}
+  .customer-panel{display:none}
+  .customer-panel.on{display:block}
+  .timeline{margin-top:0;border-top:none;padding-top:0}
   .timeline-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px}
   .timeline-title{font-size:18px;font-weight:800}
   .timeline-add{border:1px solid var(--border2);background:var(--bg);border-radius:18px;padding:8px 12px;font-size:13px;font-weight:700;color:var(--text);cursor:pointer}
@@ -244,39 +249,47 @@
       </div>
       <button class="btn-secondary" onclick="showView('list')" style="width:auto;margin:0;padding:14px 18px">關閉</button>
     </div>
-    <div class="edit-grid">
-      <div class="edit-field"><label>時間</label><input class="edit-input" id="ce-time" disabled /></div>
-      <div class="edit-field"><label>姓名</label><input class="edit-input" id="ce-name" /></div>
-      <div class="edit-field"><label>約訪目的</label><input class="edit-input" id="ce-visit-purpose" placeholder="出PC、問卷、保單健檢..." /></div>
-      <div class="edit-field"><label>年齡</label><input class="edit-input" id="ce-age" disabled /></div>
-      <div class="edit-field"><label>等級</label><select class="edit-input" id="ce-grade"><option></option><option>A級</option><option>B級</option><option>C級</option><option>D級</option></select></div>
-      <div class="edit-field"><label>家庭現況</label><input class="edit-input" id="ce-family" /></div>
-      <div class="edit-field"><label>活動區域</label><input class="edit-input" id="ce-area" /></div>
-      <div class="edit-field"><label>怎麼認識</label><input class="edit-input" id="ce-how-met" /></div>
-      <div class="edit-field"><label>目前進度</label><input class="edit-input" id="ce-progress" placeholder="問卷、理財金三角..." /></div>
-      <div class="edit-section">聊天內容</div>
-      <div class="edit-field"><label>工作狀態</label><input class="edit-input" id="ce-work" /></div>
-      <div class="edit-field"><label>投資狀況</label><input class="edit-input" id="ce-invest" /></div>
-      <div class="edit-field"><label>競爭者</label><input class="edit-input" id="ce-competitor" /></div>
-      <div class="edit-field"><label>決策者</label><input class="edit-input" id="ce-decision" /></div>
-      <div class="edit-field full"><label>現有保單</label><input class="edit-input" id="ce-policy" placeholder="Notion 目前是網址欄位，請填 URL" /><div class="edit-help">這欄對應 Notion 的 URL 欄位；若不是網址會先不送出，避免同步失敗。</div></div>
-      <div class="edit-field"><label>下次見面主題</label><input class="edit-input" id="ce-next-topic" /></div>
-      <div class="edit-field"><label>薪水</label><input class="edit-input" id="ce-salary" inputmode="decimal" /></div>
-      <div class="edit-field"><label>目標</label><input class="edit-input" id="ce-goal" /></div>
-      <div class="edit-field full"><label>補充說明</label><textarea class="edit-input" id="ce-note"></textarea><div class="edit-help">對應 Notion 的「配置建議」。</div></div>
-      <div class="edit-field full"><label>保單統整</label><input class="edit-input" id="ce-policy-summary" placeholder="https://..." /></div>
-      <div class="edit-field full"><label>保單健檢</label><input class="edit-input" id="ce-policy-checkup" placeholder="https://..." /></div>
+    <div class="customer-tabs">
+      <div class="customer-tab on" id="customer-tab-kyc" onclick="setCustomerTab('kyc')">KYC</div>
+      <div class="customer-tab" id="customer-tab-history" onclick="setCustomerTab('history')">互動時間軸</div>
     </div>
-    <div class="edit-actions">
-      <button class="btn-secondary" onclick="showView('list')">取消</button>
-      <button class="btn-primary" id="ce-save" onclick="saveCustomerEdit()">更新客戶</button>
+    <div class="customer-panel on" id="customer-panel-kyc">
+      <div class="edit-grid">
+        <div class="edit-field"><label>時間</label><input class="edit-input" id="ce-time" disabled /></div>
+        <div class="edit-field"><label>姓名</label><input class="edit-input" id="ce-name" /></div>
+        <div class="edit-field"><label>約訪目的</label><input class="edit-input" id="ce-visit-purpose" placeholder="出PC、問卷、保單健檢..." /></div>
+        <div class="edit-field"><label>年齡</label><input class="edit-input" id="ce-age" disabled /></div>
+        <div class="edit-field"><label>等級</label><select class="edit-input" id="ce-grade"><option></option><option>A級</option><option>B級</option><option>C級</option><option>D級</option></select></div>
+        <div class="edit-field"><label>家庭現況</label><input class="edit-input" id="ce-family" /></div>
+        <div class="edit-field"><label>活動區域</label><input class="edit-input" id="ce-area" /></div>
+        <div class="edit-field"><label>怎麼認識</label><input class="edit-input" id="ce-how-met" /></div>
+        <div class="edit-field"><label>目前進度</label><input class="edit-input" id="ce-progress" placeholder="問卷、理財金三角..." /></div>
+        <div class="edit-section">聊天內容</div>
+        <div class="edit-field"><label>工作狀態</label><input class="edit-input" id="ce-work" /></div>
+        <div class="edit-field"><label>投資狀況</label><input class="edit-input" id="ce-invest" /></div>
+        <div class="edit-field"><label>競爭者</label><input class="edit-input" id="ce-competitor" /></div>
+        <div class="edit-field"><label>決策者</label><input class="edit-input" id="ce-decision" /></div>
+        <div class="edit-field full"><label>現有保單</label><input class="edit-input" id="ce-policy" placeholder="Notion 目前是網址欄位，請填 URL" /><div class="edit-help">這欄對應 Notion 的 URL 欄位；若不是網址會先不送出，避免同步失敗。</div></div>
+        <div class="edit-field"><label>下次見面主題</label><input class="edit-input" id="ce-next-topic" /></div>
+        <div class="edit-field"><label>薪水</label><input class="edit-input" id="ce-salary" inputmode="decimal" /></div>
+        <div class="edit-field"><label>目標</label><input class="edit-input" id="ce-goal" /></div>
+        <div class="edit-field full"><label>補充說明</label><textarea class="edit-input" id="ce-note"></textarea><div class="edit-help">對應 Notion 的「配置建議」。</div></div>
+        <div class="edit-field full"><label>保單統整</label><input class="edit-input" id="ce-policy-summary" placeholder="https://..." /></div>
+        <div class="edit-field full"><label>保單健檢</label><input class="edit-input" id="ce-policy-checkup" placeholder="https://..." /></div>
+      </div>
+      <div class="edit-actions">
+        <button class="btn-secondary" onclick="showView('list')">取消</button>
+        <button class="btn-primary" id="ce-save" onclick="saveCustomerEdit()">更新客戶</button>
+      </div>
     </div>
-    <div class="timeline">
+    <div class="customer-panel" id="customer-panel-history">
+      <div class="timeline">
       <div class="timeline-head">
         <div class="timeline-title">互動時間軸</div>
         <button class="timeline-add" onclick="startInteractionForCustomer()">＋ 新增互動</button>
       </div>
       <div id="ce-history"></div>
+      </div>
     </div>
   </div>
 </div>
@@ -607,7 +620,15 @@ function openCustomerEdit(id){
   document.getElementById('ce-policy-summary').value=c.policySummary||'';
   document.getElementById('ce-policy-checkup').value=c.policyCheckup||'';
   renderCustomerHistory(c.id);
+  setCustomerTab('kyc');
   showView('customer-edit');
+}
+
+function setCustomerTab(tab){
+  document.getElementById('customer-tab-kyc')?.classList.toggle('on',tab==='kyc');
+  document.getElementById('customer-tab-history')?.classList.toggle('on',tab==='history');
+  document.getElementById('customer-panel-kyc')?.classList.toggle('on',tab==='kyc');
+  document.getElementById('customer-panel-history')?.classList.toggle('on',tab==='history');
 }
 
 function renderCustomerHistory(customerId){
