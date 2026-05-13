@@ -75,7 +75,9 @@
   .toast{position:fixed;bottom:calc(var(--safe-bot) + 24px);left:50%;transform:translateX(-50%) translateY(80px);background:var(--text);color:var(--bg);padding:11px 20px;border-radius:24px;font-size:14px;font-weight:500;transition:transform .3s ease;z-index:99;white-space:nowrap;pointer-events:none}
   .toast.show{transform:translateX(-50%) translateY(0)}
   .toast.err{background:var(--red)}
-  .mini-frame{position:fixed;left:16px;right:16px;bottom:calc(var(--safe-bot) + 18px);max-width:398px;margin:0 auto;background:var(--bg);border:1px solid var(--border2);border-radius:18px;box-shadow:0 12px 38px rgba(0,0,0,.18);z-index:120;display:none;overflow:hidden}
+  .mini-backdrop{position:fixed;inset:0;background:rgba(238,236,232,.72);z-index:118;display:none}
+  .mini-backdrop.show{display:block}
+  .mini-frame{position:fixed;left:16px;right:16px;top:50%;transform:translateY(-50%);max-width:398px;margin:0 auto;background:var(--bg);border:0.5px solid var(--border2);border-radius:18px;box-shadow:0 12px 38px rgba(0,0,0,.16);z-index:120;display:none;overflow:hidden}
   .mini-frame.show{display:block}
   .mini-head{display:flex;align-items:center;justify-content:space-between;padding:13px 15px;border-bottom:1px solid var(--border);font-weight:800}
   .mini-close{border:none;background:var(--bg2);border-radius:50%;width:30px;height:30px;font-size:18px;color:var(--text2);cursor:pointer}
@@ -113,6 +115,14 @@
   .main-tabs::-webkit-scrollbar{display:none}
   .main-tab{padding:8px 15px;border-radius:22px;font-size:14px;font-weight:600;border:0.5px solid var(--border2);background:var(--bg);color:var(--text2);white-space:nowrap;cursor:pointer}
   .main-tab.on{background:var(--text);color:var(--bg);border-color:var(--text)}
+  .search-results{display:none;margin-top:8px;background:var(--bg);border:0.5px solid var(--border2);border-radius:var(--radius);overflow:hidden}
+  .search-results.show{display:block}
+  .search-result{display:flex;align-items:center;gap:9px;padding:10px 12px;border-bottom:0.5px solid var(--border);cursor:pointer}
+  .search-result:last-child{border-bottom:none}
+  .search-result:active{background:var(--bg2)}
+  .search-result-avatar{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;flex-shrink:0}
+  .search-result-name{font-size:14px;font-weight:600;color:var(--text)}
+  .search-result-meta{font-size:12px;color:var(--text3);margin-top:1px}
   .today-card{margin:14px 16px 90px;border:0.5px solid var(--border);border-radius:18px;overflow:hidden;background:var(--bg)}
   .today-head{display:flex;align-items:center;justify-content:space-between;padding:15px 16px;border-bottom:0.5px solid var(--border)}
   .today-title{font-size:20px;font-weight:700}
@@ -169,8 +179,9 @@
 </head>
 <body>
 <div id="toast" class="toast"></div>
+<div id="today-backdrop" class="mini-backdrop" onclick="hideTodayFrame()"></div>
 <div id="today-frame" class="mini-frame">
-  <div class="mini-head"><span>今日新增互動</span><button class="mini-close" onclick="hideTodayFrame()">×</button></div>
+  <div class="mini-head"><span id="today-frame-title">今日互動</span><button class="mini-close" onclick="hideTodayFrame()">×</button></div>
   <div class="mini-list" id="today-frame-list"></div>
 </div>
 <div id="interaction-sheet" class="action-sheet">
@@ -208,13 +219,14 @@
     </div>
   </div>
   <div class="main-tabs" id="main-tabs">
-    <div class="main-tab on" onclick="setMode('today',this)">今日追蹤</div>
+    <div class="main-tab on" onclick="setMode('today',this)">分級名單</div>
     <div class="main-tab" onclick="setMode('customers',this)">客戶列表</div>
     <div class="main-tab" onclick="setMode('manager',this)">主管看板</div>
   </div>
   <div class="search-wrap" id="search-wrap">
     <span class="search-icon">⌕</span>
     <input type="search" id="search-input" placeholder="搜尋客戶名稱、互動內容..." oninput="renderList()" />
+    <div class="search-results" id="search-results"></div>
   </div>
   <div class="filter-row" id="channel-filters">
     <div class="fpill on" onclick="setFilter(this,'')">全部</div>
@@ -225,8 +237,8 @@
     <div class="fpill" onclick="setFilter(this,'其他')">其他</div>
   </div>
   <div class="stats-row">
-    <div class="stat"><div class="stat-n" id="stat-total">—</div><div class="stat-l">總聯絡人</div></div>
-    <div class="stat clickable" onclick="showTodayFrame()"><div class="stat-n" id="stat-today" style="color:#3B6D11">—</div><div class="stat-l">今日新增</div></div>
+    <div class="stat clickable" onclick="showTodayFrame('updated')"><div class="stat-n" id="stat-total">—</div><div class="stat-l">今日互動</div></div>
+    <div class="stat clickable" onclick="showTodayFrame('created')"><div class="stat-n" id="stat-today" style="color:#3B6D11">—</div><div class="stat-l">今日新增</div></div>
   </div>
   <div id="contacts-list"></div>
   <div class="fab-area">
@@ -567,6 +579,7 @@ function renderList(){
   const channelFilters=document.getElementById('channel-filters');
   if(searchWrap)searchWrap.style.display=mode==='today'||mode==='customers'?'block':'none';
   if(channelFilters)channelFilters.style.display=mode==='interactions'?'flex':'none';
+  renderSearchResults();
   if(mode==='today'){renderToday();return}
   if(mode==='customers'){renderCustomers();return}
   if(mode==='manager'){renderManager();return}
@@ -576,12 +589,39 @@ function renderList(){
     return mq&&(!filterCh||c.channel===filterCh);
   });
   const ts=document.getElementById('stat-total');const tt=document.getElementById('stat-today');
-  if(ts)ts.textContent=contacts.length;
-  if(tt)tt.textContent=todayInteractions().length;
+  if(ts)ts.textContent=todayInteractions().length;
+  if(tt)tt.textContent=todayCreatedInteractions().length;
   const el=document.getElementById('contacts-list');if(!el)return;
   if(!list.length){el.innerHTML='<div class="empty-state">找不到紀錄<br><span style="font-size:13px">點右下角 + 新增</span></div>';return}
   const cc=c=>{const cv=chColor(c.channel);return c.channel?`<span class="ch-badge" style="background:${cv.bg};color:${cv.c}">${esc(c.channel)}</span>`:''};
   el.innerHTML=list.map(c=>{const av=avColor(c.name);return`<div class="contact-item" onclick="showDetail('${attr(c.id)}')"><div class="avatar" title="編輯客戶資料" onclick="openCustomerPage(event,'${attr(c.customerId)}')" style="background:${av.bg};color:${av.c}">${esc(initials(c.name))}</div><div class="contact-info"><div class="contact-name">${esc(c.name)}</div><div class="contact-sub">${esc(c.talked||'尚無紀錄')}</div></div>${cc(c)}</div>`}).join('')
+}
+
+function renderSearchResults(){
+  const box=document.getElementById('search-results');
+  const q=(document.getElementById('search-input')?.value||'').trim().toLowerCase();
+  if(!box)return;
+  if(!q||!(mode==='today'||mode==='customers')){
+    box.classList.remove('show');
+    box.innerHTML='';
+    return;
+  }
+  const list=customers
+    .filter(c=>[c.name,c.topic,c.status,c.grade,c.nextTopic].some(x=>(x||'').toLowerCase().includes(q)))
+    .slice(0,12);
+  if(!list.length){
+    box.innerHTML='<div class="search-result"><div><div class="search-result-name">找不到符合的客戶</div></div></div>';
+    box.classList.add('show');
+    return;
+  }
+  box.innerHTML=list.map(c=>{
+    const av=avColor(c.name);
+    return `<div class="search-result" onclick="openCustomerEdit('${attr(c.id)}')">
+      <div class="search-result-avatar" style="background:${av.bg};color:${av.c}">${esc(initials(c.name))}</div>
+      <div><div class="search-result-name">${esc(c.name)}</div><div class="search-result-meta">${esc([c.grade,c.topic].filter(Boolean).join(' · '))}</div></div>
+    </div>`;
+  }).join('');
+  box.classList.add('show');
 }
 
 function renderTrackRow(c){
@@ -600,10 +640,10 @@ function renderToday(){
   const groups={A:[],B:[],C:[],D:[]};active.forEach(c=>groups[c.gradeKey]?.push(c));
   const count=groups.A.length+groups.B.length+groups.C.length+groups.D.length;
   const ts=document.getElementById('stat-total');const tt=document.getElementById('stat-today');
-  if(ts)ts.textContent=customers.length;
-  if(tt)tt.textContent=todayInteractions().length;
+  if(ts)ts.textContent=todayInteractions().length;
+  if(tt)tt.textContent=todayCreatedInteractions().length;
   const el=document.getElementById('contacts-list');if(!el)return;
-  let html=`<div class="today-card"><div class="today-head"><div class="today-title">今日追蹤</div><div class="today-count">${count} 人</div></div>
+  let html=`<div class="today-card"><div class="today-head"><div class="today-title">分級名單</div><div class="today-count">${count} 人</div></div>
     <div class="grade-tabs">
       <div class="grade-tab ${gradeFilter==='A'?'on':''}" onclick="gradeFilter='A';renderToday()">A 熱</div>
       <div class="grade-tab ${gradeFilter==='B'?'on':''}" onclick="gradeFilter='B';renderToday()">B 暖</div>
@@ -622,8 +662,8 @@ function renderCustomers(){
   const q=(document.getElementById('search-input')?.value||'').toLowerCase();
   const list=customers.filter(c=>!q||[c.name,c.topic,c.status,c.grade].some(x=>(x||'').toLowerCase().includes(q)));
   const ts=document.getElementById('stat-total');const tt=document.getElementById('stat-today');
-  if(ts)ts.textContent=customers.length;
-  if(tt)tt.textContent=todayInteractions().length;
+  if(ts)ts.textContent=todayInteractions().length;
+  if(tt)tt.textContent=todayCreatedInteractions().length;
   const el=document.getElementById('contacts-list');if(!el)return;
   el.innerHTML='<div class="list-note">客戶列表會顯示全部 A/B/C/D 客戶；點客戶即可在 App 內編輯資料。</div>'+list.map(c=>{
     const av=avColor(c.name);
@@ -633,7 +673,7 @@ function renderCustomers(){
 
 function renderManager(){
   const ts=document.getElementById('stat-total');const tt=document.getElementById('stat-today');
-  if(ts)ts.textContent=contacts.length;if(tt)tt.textContent=todayInteractions().length;
+  if(ts)ts.textContent=todayInteractions().length;if(tt)tt.textContent=todayCreatedInteractions().length;
   const el=document.getElementById('contacts-list');if(!el)return;
   const recent=contacts.slice(0,20);
   el.innerHTML='<div class="list-note">主管看板先顯示最近互動紀錄，後續可再接「回報主管」勾選清單與主管回饋欄位。</div>'+recent.map(c=>{
@@ -646,22 +686,31 @@ function todayInteractions(){
   return contacts.filter(c=>(c.lastContact||c.created)===today);
 }
 
-function showTodayFrame(){
+function todayCreatedInteractions(){
+  return contacts.filter(c=>c.created===today);
+}
+
+function showTodayFrame(kind='updated'){
   const frame=document.getElementById('today-frame');
   const listEl=document.getElementById('today-frame-list');
+  const titleEl=document.getElementById('today-frame-title');
   if(!frame||!listEl)return;
-  const list=todayInteractions();
+  const isCreated=kind==='created';
+  const list=isCreated?todayCreatedInteractions():todayInteractions();
+  if(titleEl)titleEl.textContent=isCreated?'今日新增互動':'今日互動';
   listEl.innerHTML=list.length?list.map(c=>`
     <div class="mini-item" onclick="hideTodayFrame();showDetail('${attr(c.id)}')">
       <div class="mini-name">${esc(c.name)}</div>
       <div class="mini-talk">${esc(c.talked||'尚無聊天內容')}</div>
       <div class="mini-meta">${esc(c.channel||'未填管道')} · ${esc(c.lastContact||c.created||'')}</div>
     </div>
-  `).join(''):'<div class="mini-item"><div class="mini-talk">今天還沒有新增互動。</div></div>';
+  `).join(''):`<div class="mini-item"><div class="mini-talk">${isCreated?'今天還沒有新增互動。':'今天還沒有更新互動。'}</div></div>`;
+  document.getElementById('today-backdrop')?.classList.add('show');
   frame.classList.add('show');
 }
 
 function hideTodayFrame(){
+  document.getElementById('today-backdrop')?.classList.remove('show');
   document.getElementById('today-frame')?.classList.remove('show');
 }
 
@@ -832,7 +881,9 @@ async function deleteInteraction(e,id){
     contacts=contacts.filter(x=>normId(x.id)!==normId(id));
     toast('已刪除互動');
     renderCustomerHistory(currentCustomerId);
-    const tt=document.getElementById('stat-today');if(tt)tt.textContent=todayInteractions().length;
+    const ts=document.getElementById('stat-total');const tt=document.getElementById('stat-today');
+    if(ts)ts.textContent=todayInteractions().length;
+    if(tt)tt.textContent=todayCreatedInteractions().length;
   }catch(err){
     toast('刪除失敗：'+err.message,true);
   }
