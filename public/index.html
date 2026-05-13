@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="default" />
+<meta name="theme-color" content="#ffffff" />
+<title>業務人脈追蹤</title>
+<link rel="manifest" href="/manifest.json" />
+<style>
+  :root {
+    --bg: #ffffff; --bg2: #f5f5f4; --bg3: #eeece8;
+    --text: #1a1a1a; --text2: #6b6b68; --text3: #a8a8a4;
+    --border: rgba(0,0,0,0.1); --border2: rgba(0,0,0,0.18);
+    --radius: 10px; --radius-lg: 14px;
+    --teal: #E1F5EE; --teal-t: #0F6E56;
+    --purple: #EEEDFE; --purple-t: #534AB7;
+    --coral: #FAECE7; --coral-t: #993C1D;
+    --amber: #FAEEDA; --amber-t: #854F0B;
+    --blue: #E6F1FB; --blue-t: #185FA5;
+    --green-bg: #EAF3DE; --green-t: #3B6D11;
+    --red: #E24B4A;
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bot: env(safe-area-inset-bottom, 0px);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1c1c1e; --bg2: #2c2c2e; --bg3: #3a3a3c;
+      --text: #f2f2f7; --text2: #aeaeb2; --text3: #636366;
+      --border: rgba(255,255,255,0.1); --border2: rgba(255,255,255,0.18);
+    }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body { font-family: -apple-system, 'SF Pro Text', sans-serif; background: var(--bg); color: var(--text); max-width: 430px; margin: 0 auto; min-height: 100dvh; }
+
+  .topbar { padding: calc(var(--safe-top) + 12px) 16px 12px; background: var(--bg); border-bottom: 0.5px solid var(--border); display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 10; }
+  .topbar-title { font-size: 17px; font-weight: 600; }
+  .btn-icon { width: 34px; height: 34px; border-radius: 50%; background: var(--text); color: var(--bg); border: none; font-size: 22px; cursor: pointer; display: flex; align-items: center; justify-content: center; line-height: 1; }
+  .btn-icon.outline { background: var(--bg2); color: var(--text); font-size: 16px; }
+
+  .search-wrap { padding: 10px 16px; background: var(--bg); border-bottom: 0.5px solid var(--border); position: relative; }
+  .search-wrap input { width: 100%; padding: 9px 12px 9px 36px; border-radius: var(--radius); border: 0.5px solid var(--border2); background: var(--bg2); color: var(--text); font-size: 15px; outline: none; }
+  .search-wrap input:focus { border-color: var(--text3); background: var(--bg); }
+  .search-icon { position: absolute; left: 28px; top: 50%; transform: translateY(-50%); color: var(--text3); font-size: 16px; pointer-events: none; }
+
+  .filter-row { display: flex; gap: 7px; padding: 8px 16px; overflow-x: auto; scrollbar-width: none; border-bottom: 0.5px solid var(--border); }
+  .filter-row::-webkit-scrollbar { display: none; }
+  .fpill { padding: 5px 13px; border-radius: 20px; font-size: 13px; cursor: pointer; border: 0.5px solid var(--border2); background: var(--bg2); color: var(--text2); white-space: nowrap; transition: all .15s; }
+  .fpill.on { background: var(--text); color: var(--bg); border-color: var(--text); }
+
+  .stats-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 12px 16px; }
+  .stat { background: var(--bg2); border-radius: var(--radius); padding: 10px 12px; }
+  .stat-n { font-size: 24px; font-weight: 600; }
+  .stat-l { font-size: 12px; color: var(--text2); margin-top: 2px; }
+
+  .section-label { font-size: 12px; color: var(--text3); padding: 8px 16px 4px; text-transform: uppercase; letter-spacing: .04em; }
+
+  .contact-item { display: flex; align-items: center; gap: 12px; padding: 11px 16px; border-bottom: 0.5px solid var(--border); cursor: pointer; transition: background .1s; }
+  .contact-item:active { background: var(--bg2); }
+  .contact-item:last-child { border-bottom: none; }
+  .avatar { width: 42px; height: 42px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 600; flex-shrink: 0; }
+  .contact-info { flex: 1; min-width: 0; }
+  .contact-name { font-size: 15px; font-weight: 500; }
+  .contact-sub { font-size: 13px; color: var(--text2); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .status-badge { font-size: 11px; padding: 3px 9px; border-radius: 12px; white-space: nowrap; flex-shrink: 0; font-weight: 500; }
+
+  .empty-state { padding: 48px 16px; text-align: center; color: var(--text3); font-size: 14px; line-height: 1.8; }
+
+  .panel { padding: 0 0 calc(var(--safe-bot) + 80px); }
+  .panel-header { padding: calc(var(--safe-top) + 12px) 16px 12px; display: flex; align-items: center; gap: 10px; border-bottom: 0.5px solid var(--border); position: sticky; top: 0; background: var(--bg); z-index: 10; }
+  .btn-back { background: var(--bg2); border: 0.5px solid var(--border2); border-radius: var(--radius); padding: 7px 12px; font-size: 13px; color: var(--text2); cursor: pointer; display: flex; align-items: center; gap: 4px; }
+  .panel-title { font-size: 16px; font-weight: 600; flex: 1; }
+
+  .field-group { padding: 0 16px; }
+  .field-row { margin-bottom: 14px; }
+  .field-label { font-size: 11px; color: var(--text3); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 5px; }
+  .field-value { font-size: 15px; color: var(--text); }
+  .field-input { width: 100%; padding: 10px 12px; border-radius: var(--radius); border: 0.5px solid var(--border2); background: var(--bg2); color: var(--text); font-size: 15px; font-family: inherit; outline: none; transition: border-color .15s, background .15s; }
+  .field-input:focus { border-color: var(--text2); background: var(--bg); }
+  textarea.field-input { resize: none; line-height: 1.5; }
+  select.field-input { appearance: none; cursor: pointer; }
+
+  .status-pills { display: flex; gap: 7px; flex-wrap: wrap; }
+  .status-pill { padding: 6px 13px; border-radius: 20px; font-size: 13px; cursor: pointer; border: 0.5px solid var(--border2); background: var(--bg2); color: var(--text2); transition: all .15s; }
+  .status-pill.on { background: var(--text); color: var(--bg); border-color: var(--text); }
+
+  .divider { border: none; border-top: 0.5px solid var(--border); margin: 16px 0; }
+
+  .btn-primary { width: calc(100% - 32px); margin: 0 16px; padding: 14px; border-radius: var(--radius-lg); background: var(--text); color: var(--bg); font-size: 15px; font-weight: 600; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; transition: opacity .15s; }
+  .btn-primary:active { opacity: .75; }
+  .btn-primary:disabled { opacity: .4; cursor: default; }
+  .btn-secondary { width: calc(100% - 32px); margin: 10px 16px 0; padding: 12px; border-radius: var(--radius-lg); background: none; color: var(--text2); font-size: 15px; border: 0.5px solid var(--border2); cursor: pointer; transition: background .15s; }
+  .btn-secondary:hover { background: var(--bg2); }
+
+  .detail-avatar { width: 64px; height: 64px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 22px; font-weight: 600; margin: 20px auto 10px; }
+  .detail-name { font-size: 20px; font-weight: 600; text-align: center; margin-bottom: 4px; }
+  .detail-sub { font-size: 14px; color: var(--text2); text-align: center; margin-bottom: 12px; }
+  .detail-badge { display: block; width: fit-content; margin: 0 auto 20px; font-size: 12px; padding: 4px 14px; border-radius: 20px; font-weight: 500; }
+
+  .log-item { padding: 10px 16px; border-bottom: 0.5px solid var(--border); }
+  .log-text { font-size: 14px; line-height: 1.5; }
+  .log-date { font-size: 12px; color: var(--text3); margin-top: 3px; }
+
+  .add-log-btn { display: flex; align-items: center; gap: 8px; padding: 12px 16px; font-size: 14px; color: var(--text2); cursor: pointer; border-top: 0.5px solid var(--border); margin-top: 4px; }
+
+  .setup-screen { padding: 40px 24px; display: flex; flex-direction: column; align-items: center; min-height: 100dvh; }
+  .setup-logo { width: 56px; height: 56px; background: var(--text); border-radius: 14px; display: flex; align-items: center; justify-content: center; margin-bottom: 20px; }
+  .setup-logo span { color: var(--bg); font-size: 26px; font-weight: 700; }
+  .setup-title { font-size: 22px; font-weight: 700; margin-bottom: 8px; text-align: center; }
+  .setup-sub { font-size: 14px; color: var(--text2); text-align: center; margin-bottom: 32px; line-height: 1.6; }
+  .setup-form { width: 100%; }
+  .setup-note { font-size: 12px; color: var(--text3); margin-top: 16px; line-height: 1.7; text-align: center; }
+  .setup-note a { color: var(--text2); }
+
+  .toast { position: fixed; bottom: calc(var(--safe-bot) + 24px); left: 50%; transform: translateX(-50%) translateY(80px); background: var(--text); color: var(--bg); padding: 11px 20px; border-radius: 24px; font-size: 14px; font-weight: 500; transition: transform .3s ease; z-index: 99; white-space: nowrap; pointer-events: none; }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+  .toast.err { background: var(--red); }
+
+  .spinner { width: 20px; height: 20px; border: 2px solid rgba(255,255,255,0.3); border-top-color: var(--bg); border-radius: 50%; animation: spin .7s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .sync-dot { width: 8px; height: 8px; border-radius: 50%; background: #ccc; transition: background .3s; }
+  .sync-dot.ok { background: #4CAF50; }
+  .sync-dot.loading { background: #FFC107; }
+  .sync-dot.err { background: var(--red); }
+
+  .fab-area { position: fixed; bottom: calc(var(--safe-bot) + 20px); right: 20px; }
+  .fab { width: 52px; height: 52px; border-radius: 50%; background: var(--text); color: var(--bg); border: none; font-size: 28px; cursor: pointer; display: flex; align-items: center; justify-content: center; line-height: 1; box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
+</style>
+</head>
+<body>
+
+<div id="toast" class="toast"></div>
+
+<!-- Setup -->
+<div id="view-setup" style="display:none">
+  <div class="setup-screen">
+    <div class="setup-logo"><span>N</span></div>
+    <div class="setup-title">業務人脈追蹤</div>
+    <div class="setup-sub">輸入你的 Notion Database ID<br>開始記錄每一位聯絡人</div>
+    <div class="setup-form">
+      <div class="field-row">
+        <div class="field-label">Notion Database ID</div>
+        <input class="field-input" id="cfg-db" placeholder="d15d379ecf104e44ac632d973bf36ce5" autocomplete="off" />
+      </div>
+      <button class="btn-primary" onclick="doConnect()" style="margin:8px 0 0">開始使用</button>
+    </div>
+    <p class="setup-note">Database ID 在 Notion 資料庫網址中取得<br>格式：notion.so/你的名稱/<strong>這裡</strong>?v=...</p>
+  </div>
+</div>
+
+<!-- List -->
+<div id="view-list" style="display:none">
+  <div class="topbar">
+    <div class="topbar-title">聯絡人</div>
+    <div style="display:flex;align-items:center;gap:10px">
+      <div class="sync-dot" id="sync-dot"></div>
+      <button class="btn-icon outline" onclick="loadContacts()" aria-label="重新整理" style="font-size:15px">↻</button>
+    </div>
+  </div>
+  <div class="search-wrap">
+    <span class="search-icon">⌕</span>
+    <input type="search" id="search-input" placeholder="搜尋姓名、公司、備註..." oninput="renderList()" />
+  </div>
+  <div class="filter-row" id="filter-row">
+    <div class="fpill on" onclick="setFilter(this,'')">全部</div>
+    <div class="fpill" onclick="setFilter(this,'剛認識')">剛認識</div>
+    <div class="fpill" onclick="setFilter(this,'已加聯絡')">已加聯絡</div>
+    <div class="fpill" onclick="setFilter(this,'第一次聊天')">第一次聊天</div>
+    <div class="fpill" onclick="setFilter(this,'持續跟進')">持續跟進</div>
+    <div class="fpill" onclick="setFilter(this,'準備報價')">準備報價</div>
+    <div class="fpill" onclick="setFilter(this,'成交')">成交</div>
+    <div class="fpill" onclick="setFilter(this,'暫停')">暫停</div>
+  </div>
+  <div class="stats-row">
+    <div class="stat"><div class="stat-n" id="stat-total">—</div><div class="stat-l">總聯絡人</div></div>
+    <div class="stat"><div class="stat-n" id="stat-today" style="color:var(--green-t)">—</div><div class="stat-l">今日新增</div></div>
+  </div>
+  <div id="contacts-list"></div>
+  <div class="fab-area">
+    <button class="fab" onclick="showView('add')" aria-label="新增聯絡人">+</button>
+  </div>
+</div>
+
+<!-- Add -->
+<div id="view-add" style="display:none">
+  <div class="panel">
+    <div class="panel-header">
+      <button class="btn-back" onclick="showView('list')">← 返回</button>
+      <div class="panel-title">新增聯絡人</div>
+    </div>
+    <div style="height:16px"></div>
+    <div class="field-group">
+      <div class="field-row"><div class="field-label">姓名 *</div><input class="field-input" id="f-name" placeholder="王小明" /></div>
+      <div class="field-row"><div class="field-label">公司</div><input class="field-input" id="f-company" placeholder="ABC 科技" /></div>
+      <div class="field-row"><div class="field-label">職稱</div><input class="field-input" id="f-jobtitle" placeholder="業務經理" /></div>
+      <div class="field-row"><div class="field-label">Line / IG</div><input class="field-input" id="f-contact" placeholder="@wangxm" /></div>
+      <div class="field-row"><div class="field-label">電話</div><input class="field-input" type="tel" id="f-phone" placeholder="0912-345-678" /></div>
+      <div class="field-row">
+        <div class="field-label">跟進狀態</div>
+        <div class="status-pills" id="add-status-pills"></div>
+      </div>
+      <div class="field-row"><div class="field-label">認識場合</div><input class="field-input" id="f-occasion" placeholder="展覽 / 拜訪 / 活動..." /></div>
+      <div class="field-row"><div class="field-label">備註 / 第一印象</div><textarea class="field-input" id="f-note" rows="3" placeholder="聊了什麼、對方需求、下次要追蹤..."></textarea></div>
+    </div>
+    <button class="btn-primary" id="add-btn" onclick="submitContact()">新增並同步到 Notion</button>
+    <button class="btn-secondary" onclick="showView('list')">取消</button>
+  </div>
+</div>
+
+<!-- Detail -->
+<div id="view-detail" style="display:none">
+  <div class="panel">
+    <div class="panel-header">
+      <button class="btn-back" onclick="showView('list')">← 返回</button>
+      <div class="panel-title" id="detail-title"></div>
+      <button class="btn-icon outline" onclick="toggleEdit()" id="edit-btn" aria-label="編輯" style="font-size:14px">✏️</button>
+    </div>
+    <div id="detail-body"></div>
+  </div>
+</div>
+
+<script>
+const DB_KEY = 'notion_crm_db';
+const STATUSES = ['剛認識','已加聯絡','第一次聊天','持續跟進','準備報價','成交','暫停'];
+const AV_COLORS = [
+  {bg:'var(--teal)',c:'var(--teal-t)'},
+  {bg:'var(--purple)',c:'var(--purple-t)'},
+  {bg:'var(--coral)',c:'var(--coral-t)'},
+  {bg:'var(--amber)',c:'var(--amber-t)'},
+  {bg:'var(--blue)',c:'var(--blue-t)'},
+];
+const STATUS_COLORS = {
+  '剛認識':{bg:'var(--blue)',c:'var(--blue-t)'},
+  '已加聯絡':{bg:'var(--green-bg)',c:'var(--green-t)'},
+  '第一次聊天':{bg:'var(--purple)',c:'var(--purple-t)'},
+  '持續跟進':{bg:'var(--amber)',c:'var(--amber-t)'},
+  '準備報價':{bg:'var(--coral)',c:'var(--coral-t)'},
+  '成交':{bg:'var(--teal)',c:'var(--teal-t)'},
+  '暫停':{bg:'#f1f1f1',c:'#888'},
+};
+
+let dbId = '', contacts = [], filterStatus = '', editMode = false, currentId = null;
+const today = new Date().toISOString().split('T')[0];
+
+function initials(n){ return (n||'??').trim().slice(0,2).toUpperCase(); }
+function avColor(n){ let h=0; for(let c of(n||''))h=(h*31+c.charCodeAt(0))&0xffff; return AV_COLORS[h%AV_COLORS.length]; }
+function statusColor(s){ return STATUS_COLORS[s]||{bg:'var(--bg2)',c:'var(--text2)'}; }
+
+function showView(v){
+  ['setup','list','detail','add'].forEach(x=>{
+    document.getElementById('view-'+x).style.display='none';
+  });
+  document.getElementById('view-'+v).style.display='block';
+  if(v==='list') renderList();
+}
+
+function toast(msg, isErr){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show' + (isErr?' err':'');
+  clearTimeout(t._tid);
+  t._tid = setTimeout(()=>t.className='toast', 2500);
+}
+
+function setSyncDot(state){
+  const d = document.getElementById('sync-dot');
+  if(d) d.className = 'sync-dot ' + (state==='ok'?'ok':state==='loading'?'loading':'err');
+}
+
+async function notionAPI(method, path, body){
+  const res = await fetch('/api/notion/' + path, {
+    method,
+    headers:{'Content-Type':'application/json'},
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  if(!res.ok) throw new Error('API ' + res.status);
+  return res.json();
+}
+
+function doConnect(){
+  const db = document.getElementById('cfg-db').value.trim().replace(/-/g,'');
+  if(!db || db.length < 32){ toast('請填入正確的 Database ID', true); return; }
+  dbId = db;
+  localStorage.setItem(DB_KEY, dbId);
+  showView('list');
+  loadContacts();
+}
+
+async function loadContacts(){
+  setSyncDot('loading');
+  try {
+    const data = await notionAPI('POST', `databases/${dbId}/query`, {
+      page_size: 100,
+      sorts: [{ timestamp: 'created_time', direction: 'descending' }]
+    });
+    contacts = (data.results||[]).map(parseContact);
+    setSyncDot('ok');
+  } catch(e){
+    setSyncDot('err');
+    toast('同步失敗，顯示暫存資料', true);
+  }
+  renderList();
+}
+
+function parseContact(p){
+  return {
+    id: p.id,
+    name: p.properties?.['姓名']?.title?.[0]?.plain_text || p.properties?.Name?.title?.[0]?.plain_text || '無名稱',
+    company: p.properties?.['公司']?.rich_text?.[0]?.plain_text || '',
+    jobTitle: p.properties?.['職稱']?.rich_text?.[0]?.plain_text || '',
+    contact: p.properties?.['Line / IG']?.rich_text?.[0]?.plain_text || '',
+    phone: p.properties?.['電話']?.phone_number || '',
+    status: p.properties?.['跟進狀態']?.select?.name || '剛認識',
+    occasion: p.properties?.['認識場合']?.rich_text?.[0]?.plain_text || '',
+    note: p.properties?.['備註']?.rich_text?.[0]?.plain_text || '',
+    created: p.created_time?.split('T')[0] || today,
+  };
+}
+
+function setFilter(el, v){
+  document.querySelectorAll('.fpill').forEach(p=>p.classList.remove('on'));
+  el.classList.add('on');
+  filterStatus = v;
+  renderList();
+}
+
+function renderList(){
+  const q = (document.getElementById('search-input')?.value||'').toLowerCase();
+  const list = contacts.filter(c=>{
+    const mq = !q || [c.name,c.company,c.note,c.contact,c.occasion].some(x=>(x||'').toLowerCase().includes(q));
+    const mf = !filterStatus || c.status===filterStatus;
+    return mq && mf;
+  });
+  const todayCount = contacts.filter(c=>c.created===today).length;
+  const ts = document.getElementById('stat-total');
+  const tt = document.getElementById('stat-today');
+  if(ts) ts.textContent = contacts.length;
+  if(tt) tt.textContent = todayCount;
+
+  const el = document.getElementById('contacts-list');
+  if(!el) return;
+  if(!list.length){
+    el.innerHTML = `<div class="empty-state">找不到符合的聯絡人<br><span style="font-size:13px">試試不同的搜尋關鍵字</span></div>`;
+    return;
+  }
+  el.innerHTML = list.map(c=>{
+    const av = avColor(c.name);
+    const sc = statusColor(c.status);
+    const sub = [c.company, c.jobTitle].filter(Boolean).join(' · ') || c.contact || '—';
+    return `<div class="contact-item" onclick="showDetail('${c.id}')">
+      <div class="avatar" style="background:${av.bg};color:${av.c}">${initials(c.name)}</div>
+      <div class="contact-info">
+        <div class="contact-name">${c.name}</div>
+        <div class="contact-sub">${sub}</div>
+      </div>
+      <span class="status-badge" style="background:${sc.bg};color:${sc.c}">${c.status}</span>
+    </div>`;
+  }).join('');
+}
+
+function renderStatusPills(containerId, currentStatus, onChange){
+  const el = document.getElementById(containerId);
+  if(!el) return;
+  let chosen = currentStatus || STATUSES[0];
+  const render = ()=>{
+    el.innerHTML = STATUSES.map(s=>`
+      <div class="status-pill${s===chosen?' on':''}" onclick="this.parentElement._pick('${s}')">${s}</div>
+    `).join('');
+  };
+  el._pick = (s)=>{ chosen=s; render(); if(onChange) onChange(s); };
+  el._get = ()=>chosen;
+  render();
+}
+
+function showDetail(id){
+  currentId = id; editMode = false;
+  const c = contacts.find(x=>x.id===id);
+  if(!c) return;
+  document.getElementById('detail-title').textContent = c.name;
+  document.getElementById('edit-btn').textContent = '✏️';
+  renderDetailView(c);
+  showView('detail');
+}
+
+function renderDetailView(c){
+  const av = avColor(c.name);
+  const sc = statusColor(c.status);
+  const logs = (c.note||'').split('\n').filter(Boolean).reverse();
+  const logsHtml = logs.length
+    ? logs.map(l=>{
+        const m = l.match(/^\[(.+?)\]\s*(.*)/);
+        return m
+          ? `<div class="log-item"><div class="log-text">${m[2]}</div><div class="log-date">${m[1]}</div></div>`
+          : `<div class="log-item"><div class="log-text">${l}</div></div>`;
+      }).join('')
+    : `<div style="padding:12px 16px;font-size:14px;color:var(--text3)">尚無記錄</div>`;
+
+  document.getElementById('detail-body').innerHTML = `
+    <div class="detail-avatar" style="background:${av.bg};color:${av.c}">${initials(c.name)}</div>
+    <div class="detail-name">${c.name}</div>
+    <div class="detail-sub">${[c.company,c.jobTitle].filter(Boolean).join(' · ')||'—'}</div>
+    <span class="detail-badge" style="background:${sc.bg};color:${sc.c}">${c.status}</span>
+    <div class="field-group">
+      ${c.contact?`<div class="field-row"><div class="field-label">Line / IG</div><div class="field-value">${c.contact}</div></div>`:''}
+      ${c.phone?`<div class="field-row"><div class="field-label">電話</div><div class="field-value">${c.phone}</div></div>`:''}
+      ${c.occasion?`<div class="field-row"><div class="field-label">認識場合</div><div class="field-value">${c.occasion}</div></div>`:''}
+      <div class="field-row"><div class="field-label">認識日期</div><div class="field-value">${c.created}</div></div>
+    </div>
+    <hr class="divider" />
+    <div class="section-label">聊天紀錄</div>
+    ${logsHtml}
+    <div class="add-log-btn" onclick="showAddLog('${c.id}')">＋ 新增今天的聊天紀錄</div>
+  `;
+}
+
+function renderDetailEdit(c){
+  document.getElementById('detail-body').innerHTML = `
+    <div style="height:16px"></div>
+    <div class="field-group">
+      <div class="field-row"><div class="field-label">姓名</div><input class="field-input" id="e-name" value="${c.name}" /></div>
+      <div class="field-row"><div class="field-label">公司</div><input class="field-input" id="e-company" value="${c.company}" /></div>
+      <div class="field-row"><div class="field-label">職稱</div><input class="field-input" id="e-jobtitle" value="${c.jobTitle}" /></div>
+      <div class="field-row"><div class="field-label">Line / IG</div><input class="field-input" id="e-contact" value="${c.contact}" /></div>
+      <div class="field-row"><div class="field-label">電話</div><input class="field-input" type="tel" id="e-phone" value="${c.phone}" /></div>
+      <div class="field-row"><div class="field-label">跟進狀態</div><div class="status-pills" id="edit-status-pills"></div></div>
+      <div class="field-row"><div class="field-label">認識場合</div><input class="field-input" id="e-occasion" value="${c.occasion}" /></div>
+    </div>
+    <button class="btn-primary" id="save-btn" onclick="saveEdit('${c.id}')">儲存並同步</button>
+    <button class="btn-secondary" onclick="toggleEdit()">取消</button>
+    <div style="height:16px"></div>
+  `;
+  renderStatusPills('edit-status-pills', c.status);
+}
+
+function toggleEdit(){
+  const c = contacts.find(x=>x.id===currentId);
+  if(!c) return;
+  editMode = !editMode;
+  document.getElementById('edit-btn').textContent = editMode ? '✕' : '✏️';
+  if(editMode) renderDetailEdit(c);
+  else renderDetailView(c);
+}
+
+function showAddLog(id){
+  const existing = document.querySelector('.add-log-btn');
+  if(existing) existing.remove();
+  const body = document.getElementById('detail-body');
+  const logForm = document.createElement('div');
+  logForm.style.cssText = 'padding:12px 16px;border-top:0.5px solid var(--border)';
+  logForm.innerHTML = `
+    <div class="field-label" style="margin-bottom:8px">今天聊了什麼</div>
+    <textarea class="field-input" id="log-input" rows="3" placeholder="需求、進度、下次要追蹤的事..."></textarea>
+    <div style="margin-top:8px;display:flex;gap:8px">
+      <button class="btn-primary" style="margin:0;flex:1;padding:10px;font-size:14px" onclick="submitLog('${id}')">記錄</button>
+    </div>
+  `;
+  body.appendChild(logForm);
+  logForm.querySelector('textarea').focus();
+}
+
+async function submitLog(id){
+  const text = document.getElementById('log-input')?.value?.trim();
+  if(!text){ toast('請輸入內容', true); return; }
+  const c = contacts.find(x=>x.id===id);
+  if(!c) return;
+  const stamp = new Date().toLocaleDateString('zh-TW',{year:'numeric',month:'2-digit',day:'2-digit'});
+  const newNote = (c.note ? c.note+'\n' : '') + `[${stamp}] ${text}`;
+  await patchNotion(id, { note: newNote, name: c.name, status: c.status });
+  c.note = newNote;
+  toast('已記錄！');
+  renderDetailView(c);
+}
+
+function buildProps(data){
+  const p = {};
+  if(data.name) p['姓名'] = { title:[{text:{content:data.name}}] };
+  if(data.company !== undefined) p['公司'] = { rich_text:[{text:{content:data.company||''}}] };
+  if(data.jobTitle !== undefined) p['職稱'] = { rich_text:[{text:{content:data.jobTitle||''}}] };
+  if(data.contact !== undefined) p['Line / IG'] = { rich_text:[{text:{content:data.contact||''}}] };
+  if(data.phone !== undefined) p['電話'] = { phone_number: data.phone||null };
+  if(data.status) p['跟進狀態'] = { select:{ name:data.status } };
+  if(data.occasion !== undefined) p['認識場合'] = { rich_text:[{text:{content:data.occasion||''}}] };
+  if(data.note !== undefined) p['備註'] = { rich_text:[{text:{content:data.note||''}}] };
+  return p;
+}
+
+async function submitContact(){
+  const name = document.getElementById('f-name').value.trim();
+  if(!name){ toast('姓名必填', true); return; }
+  const btn = document.getElementById('add-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<div class="spinner"></div>';
+  const data = {
+    name,
+    company: document.getElementById('f-company').value.trim(),
+    jobTitle: document.getElementById('f-jobtitle').value.trim(),
+    contact: document.getElementById('f-contact').value.trim(),
+    phone: document.getElementById('f-phone').value.trim(),
+    status: document.getElementById('add-status-pills')?._get() || STATUSES[0],
+    occasion: document.getElementById('f-occasion').value.trim(),
+    note: document.getElementById('f-note').value.trim(),
+    created: today,
+  };
+  try {
+    const res = await notionAPI('POST','pages',{
+      parent:{ database_id: dbId },
+      properties: buildProps(data),
+    });
+    data.id = res.id;
+    contacts.unshift(data);
+    ['f-name','f-company','f-jobtitle','f-contact','f-phone','f-occasion','f-note'].forEach(id=>{
+      const el=document.getElementById(id); if(el) el.value='';
+    });
+    renderStatusPills('add-status-pills', STATUSES[0]);
+    toast('已新增並同步！');
+    showView('list');
+  } catch(e){
+    toast('同步失敗，稍後再試', true);
+  }
+  btn.disabled = false;
+  btn.innerHTML = '新增並同步到 Notion';
+}
+
+async function saveEdit(id){
+  const btn = document.getElementById('save-btn');
+  if(btn){ btn.disabled=true; btn.innerHTML='<div class="spinner"></div>'; }
+  const c = contacts.find(x=>x.id===id);
+  if(!c) return;
+  const updates = {
+    name: document.getElementById('e-name').value.trim() || c.name,
+    company: document.getElementById('e-company').value.trim(),
+    jobTitle: document.getElementById('e-jobtitle').value.trim(),
+    contact: document.getElementById('e-contact').value.trim(),
+    phone: document.getElementById('e-phone').value.trim(),
+    status: document.getElementById('edit-status-pills')?._get() || c.status,
+    occasion: document.getElementById('e-occasion').value.trim(),
+    note: c.note,
+  };
+  try {
+    await patchNotion(id, updates);
+    Object.assign(c, updates);
+    toast('已儲存！');
+    editMode = false;
+    document.getElementById('detail-title').textContent = c.name;
+    document.getElementById('edit-btn').textContent = '✏️';
+    renderDetailView(c);
+  } catch(e){
+    toast('儲存失敗', true);
+    if(btn){ btn.disabled=false; btn.innerHTML='儲存並同步'; }
+  }
+}
+
+async function patchNotion(id, data){
+  if(!id || id.startsWith('local')) return;
+  await notionAPI('PATCH', `pages/${id}`, { properties: buildProps(data) });
+}
+
+// Init
+window.addEventListener('DOMContentLoaded', ()=>{
+  renderStatusPills('add-status-pills', STATUSES[0]);
+  const saved = localStorage.getItem(DB_KEY);
+  if(saved){ dbId=saved; showView('list'); loadContacts(); }
+  else showView('setup');
+});
+</script>
+</body>
+</html>
