@@ -119,6 +119,8 @@
   textarea.edit-input{min-height:132px;resize:vertical;line-height:1.6}
   .edit-actions{display:flex;gap:12px;margin-top:22px}
   .edit-actions .btn-secondary,.edit-actions .btn-primary{width:auto;margin:0;flex:1}
+  .edit-section{grid-column:1 / -1;font-size:14px;font-weight:800;color:#111827;border-top:1px solid var(--border);padding-top:14px;margin-top:2px}
+  .edit-help{font-size:12px;color:#94a3b8;margin-top:6px;line-height:1.5}
   @media(min-width:700px){
     body{max-width:720px}
     .edit-grid{grid-template-columns:1fr 1fr}
@@ -234,11 +236,25 @@
       <button class="btn-secondary" onclick="showView('list')" style="width:auto;margin:0;padding:14px 18px">關閉</button>
     </div>
     <div class="edit-grid">
+      <div class="edit-field"><label>時間</label><input class="edit-input" id="ce-time" disabled /></div>
       <div class="edit-field"><label>姓名</label><input class="edit-input" id="ce-name" /></div>
-      <div class="edit-field"><label>暱稱</label><input class="edit-input" id="ce-nick" /></div>
-      <div class="edit-field"><label>電話</label><input class="edit-input" id="ce-phone" inputmode="tel" /></div>
-      <div class="edit-field"><label>生日</label><input class="edit-input" id="ce-birthday" type="date" /></div>
-      <div class="edit-field full"><label>備註</label><textarea class="edit-input" id="ce-note"></textarea></div>
+      <div class="edit-field"><label>約訪目的</label><input class="edit-input" id="ce-visit-purpose" placeholder="出PC、問卷、保單健檢..." /></div>
+      <div class="edit-field"><label>年齡</label><input class="edit-input" id="ce-age" disabled /></div>
+      <div class="edit-field"><label>等級</label><select class="edit-input" id="ce-grade"><option></option><option>A級</option><option>B級</option><option>C級</option><option>D級</option></select></div>
+      <div class="edit-field"><label>家庭現況</label><input class="edit-input" id="ce-family" /></div>
+      <div class="edit-field"><label>活動區域</label><input class="edit-input" id="ce-area" /></div>
+      <div class="edit-field"><label>怎麼認識</label><input class="edit-input" id="ce-how-met" /></div>
+      <div class="edit-field"><label>目前進度</label><input class="edit-input" id="ce-progress" placeholder="問卷、理財金三角..." /></div>
+      <div class="edit-section">聊天內容</div>
+      <div class="edit-field"><label>工作狀態</label><input class="edit-input" id="ce-work" /></div>
+      <div class="edit-field"><label>投資狀況</label><input class="edit-input" id="ce-invest" /></div>
+      <div class="edit-field"><label>競爭者</label><input class="edit-input" id="ce-competitor" /></div>
+      <div class="edit-field"><label>決策者</label><input class="edit-input" id="ce-decision" /></div>
+      <div class="edit-field full"><label>現有保單</label><input class="edit-input" id="ce-policy" placeholder="Notion 目前是網址欄位，請填 URL" /><div class="edit-help">這欄對應 Notion 的 URL 欄位；若不是網址會先不送出，避免同步失敗。</div></div>
+      <div class="edit-field"><label>下次見面主題</label><input class="edit-input" id="ce-next-topic" /></div>
+      <div class="edit-field"><label>薪水</label><input class="edit-input" id="ce-salary" inputmode="decimal" /></div>
+      <div class="edit-field"><label>目標</label><input class="edit-input" id="ce-goal" /></div>
+      <div class="edit-field full"><label>補充說明</label><textarea class="edit-input" id="ce-note"></textarea><div class="edit-help">對應 Notion 的「配置建議」。</div></div>
     </div>
     <div class="edit-actions">
       <button class="btn-secondary" onclick="showView('list')">取消</button>
@@ -270,8 +286,14 @@ function pageTitle(p){
   return titleKey?(props[titleKey].title||[]).map(t=>t.plain_text||'').join('').trim():'';
 }
 function richText(prop){return (prop?.rich_text||[]).map(t=>t.plain_text||'').join('').trim()}
+function emailText(prop){return prop?.email||''}
+function urlText(prop){return prop?.url||''}
 function selectName(prop){return prop?.select?.name||''}
 function multiNames(prop){return (prop?.multi_select||[]).map(x=>x.name).join('、')}
+function numberText(prop){return prop?.number===null||prop?.number===undefined?'':String(prop.number)}
+function splitOptions(v){return String(v||'').split(/[、,，\n]/).map(x=>x.trim()).filter(Boolean)}
+function validUrl(v){return !v||/^https?:\/\//i.test(v)}
+function validNumber(v){return !v||!Number.isNaN(Number(v))}
 function formulaText(prop){
   const f=prop?.formula;if(!f)return '';
   if(f.type==='string')return f.string||'';
@@ -344,13 +366,25 @@ async function loadContacts(){
       const status=multiNames(props['目前進度'])||multiNames(props['商品方向'])||multiNames(props['屬性'])||'';
       return{
         id:p.id,
+        created:p.created_time?.split('T')[0]||'',
         name,
-        nick:richText(props['IG帳號']),
-        phone:richText(props['聯絡方式']),
-        birthday:props['出生年月日']?.date?.start||'',
-        note:richText(props['下次見面主題']),
+        visitPurpose:multiNames(props['③約訪目的']),
+        age:formulaText(props['實際年齡']),
         grade,
         gradeKey:gradeKey(grade),
+        family:richText(props['家庭現況']),
+        area:richText(props['住家']),
+        howMet:emailText(props['怎麼認識']),
+        progress:multiNames(props['目前進度']),
+        work:emailText(props['工作狀態']),
+        invest:emailText(props['投資狀況']),
+        competitor:emailText(props['競爭者']),
+        decision:richText(props['決策者']),
+        policy:urlText(props['現有保單']),
+        nextTopic:richText(props['下次見面主題']),
+        salary:numberText(props['薪水']),
+        goal:richText(props['目標']),
+        note:richText(props['配置建議']),
         topic,
         status,
         reminder:formulaText(props['建議下次聯絡日'])||formulaText(props['預計約訪日'])||formulaText(props['定聯提醒']),
@@ -486,7 +520,7 @@ function renderToday(){
   const count=groups.A.length+groups.B.length+groups.C.length+groups.D.length;
   const ts=document.getElementById('stat-total');const tt=document.getElementById('stat-today');
   if(ts)ts.textContent=customers.length;
-  if(tt)tt.textContent=count;
+  if(tt)tt.textContent=customers.filter(c=>c.created===today).length;
   const el=document.getElementById('contacts-list');if(!el)return;
   let html=`<div class="today-card"><div class="today-head"><div class="today-title">今日追蹤</div><div class="today-count">${count} 人</div></div>
     <div class="grade-tabs">
@@ -508,7 +542,7 @@ function renderCustomers(){
   const list=customers.filter(c=>!q||[c.name,c.topic,c.status,c.grade].some(x=>(x||'').toLowerCase().includes(q)));
   const ts=document.getElementById('stat-total');const tt=document.getElementById('stat-today');
   if(ts)ts.textContent=customers.length;
-  if(tt)tt.textContent=contacts.filter(c=>c.created===today).length;
+  if(tt)tt.textContent=customers.filter(c=>c.created===today).length;
   const el=document.getElementById('contacts-list');if(!el)return;
   el.innerHTML='<div class="list-note">客戶列表會顯示全部 A/B/C/D 客戶；點客戶即可在 App 內編輯資料。</div>'+list.map(c=>{
     const av=avColor(c.name);
@@ -531,21 +565,45 @@ function openCustomerEdit(id){
   const c=customers.find(x=>normId(x.id)===normId(id));
   if(!c){toast('找不到客戶資料，請先重新整理',true);return}
   currentCustomerId=c.id;
+  document.getElementById('ce-time').value=c.created||'';
   document.getElementById('ce-name').value=c.name||'';
-  document.getElementById('ce-nick').value=c.nick||'';
-  document.getElementById('ce-phone').value=c.phone||'';
-  document.getElementById('ce-birthday').value=(c.birthday||'').slice(0,10);
-  document.getElementById('ce-note').value=c.note||c.topic||'';
+  document.getElementById('ce-visit-purpose').value=c.visitPurpose||'';
+  document.getElementById('ce-age').value=c.age||'';
+  document.getElementById('ce-grade').value=c.grade||'';
+  document.getElementById('ce-family').value=c.family||'';
+  document.getElementById('ce-area').value=c.area||'';
+  document.getElementById('ce-how-met').value=c.howMet||'';
+  document.getElementById('ce-progress').value=c.progress||'';
+  document.getElementById('ce-work').value=c.work||'';
+  document.getElementById('ce-invest').value=c.invest||'';
+  document.getElementById('ce-competitor').value=c.competitor||'';
+  document.getElementById('ce-decision').value=c.decision||'';
+  document.getElementById('ce-policy').value=c.policy||'';
+  document.getElementById('ce-next-topic').value=c.nextTopic||'';
+  document.getElementById('ce-salary').value=c.salary||'';
+  document.getElementById('ce-goal').value=c.goal||'';
+  document.getElementById('ce-note').value=c.note||'';
   showView('customer-edit');
 }
 
 function buildCustomerProps(d){
   const p={};
   if(d.name!==undefined)p['客戶名稱']={title:[{text:{content:d.name||'未命名'}}]};
-  if(d.nick!==undefined)p['IG帳號']={rich_text:[{text:{content:d.nick||''}}]};
-  if(d.phone!==undefined)p['聯絡方式']={rich_text:[{text:{content:d.phone||''}}]};
-  if(d.birthday!==undefined)p['出生年月日']=d.birthday?{date:{start:d.birthday}}:{date:null};
-  if(d.note!==undefined)p['下次見面主題']={rich_text:[{text:{content:d.note||''}}]};
+  if(d.visitPurpose!==undefined)p['③約訪目的']={multi_select:splitOptions(d.visitPurpose).map(name=>({name}))};
+  if(d.grade!==undefined)p['分級']=d.grade?{select:{name:d.grade}}:{select:null};
+  if(d.family!==undefined)p['家庭現況']={rich_text:[{text:{content:d.family||''}}]};
+  if(d.area!==undefined)p['住家']={rich_text:[{text:{content:d.area||''}}]};
+  if(d.howMet!==undefined)p['怎麼認識']={email:d.howMet||null};
+  if(d.progress!==undefined)p['目前進度']={multi_select:splitOptions(d.progress).map(name=>({name}))};
+  if(d.work!==undefined)p['工作狀態']={email:d.work||null};
+  if(d.invest!==undefined)p['投資狀況']={email:d.invest||null};
+  if(d.competitor!==undefined)p['競爭者']={email:d.competitor||null};
+  if(d.decision!==undefined)p['決策者']={rich_text:[{text:{content:d.decision||''}}]};
+  if(d.policy!==undefined&&validUrl(d.policy))p['現有保單']={url:d.policy||null};
+  if(d.nextTopic!==undefined)p['下次見面主題']={rich_text:[{text:{content:d.nextTopic||''}}]};
+  if(d.salary!==undefined&&validNumber(d.salary))p['薪水']={number:d.salary?Number(d.salary):null};
+  if(d.goal!==undefined)p['目標']={rich_text:[{text:{content:d.goal||''}}]};
+  if(d.note!==undefined)p['配置建議']={rich_text:[{text:{content:d.note||''}}]};
   return p;
 }
 
@@ -555,16 +613,29 @@ async function saveCustomerEdit(){
   if(btn){btn.disabled=true;btn.innerHTML='<div class="spinner"></div>'}
   const updates={
     name:document.getElementById('ce-name').value.trim(),
-    nick:document.getElementById('ce-nick').value.trim(),
-    phone:document.getElementById('ce-phone').value.trim(),
-    birthday:document.getElementById('ce-birthday').value,
+    visitPurpose:document.getElementById('ce-visit-purpose').value.trim(),
+    grade:document.getElementById('ce-grade').value,
+    family:document.getElementById('ce-family').value.trim(),
+    area:document.getElementById('ce-area').value.trim(),
+    howMet:document.getElementById('ce-how-met').value.trim(),
+    progress:document.getElementById('ce-progress').value.trim(),
+    work:document.getElementById('ce-work').value.trim(),
+    invest:document.getElementById('ce-invest').value.trim(),
+    competitor:document.getElementById('ce-competitor').value.trim(),
+    decision:document.getElementById('ce-decision').value.trim(),
+    policy:document.getElementById('ce-policy').value.trim(),
+    nextTopic:document.getElementById('ce-next-topic').value.trim(),
+    salary:document.getElementById('ce-salary').value.trim(),
+    goal:document.getElementById('ce-goal').value.trim(),
     note:document.getElementById('ce-note').value.trim(),
   };
   try{
+    if(updates.policy&&!validUrl(updates.policy))toast('現有保單不是網址，已略過這欄',true);
+    if(updates.salary&&!validNumber(updates.salary))toast('薪水不是數字，已略過這欄',true);
     await notionAPI('PATCH',`pages/${currentCustomerId}`,{properties:buildCustomerProps(updates)});
     const c=customers.find(x=>normId(x.id)===normId(currentCustomerId));
     if(c){
-      Object.assign(c,updates,{topic:updates.note||c.topic});
+      Object.assign(c,updates,{gradeKey:gradeKey(updates.grade),topic:updates.nextTopic||c.topic,status:updates.progress||c.status});
       contacts.forEach(r=>{if(normId(r.customerId)===normId(currentCustomerId))r.name=updates.name||r.name});
     }
     toast('客戶資料已更新');
